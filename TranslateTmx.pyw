@@ -19,13 +19,7 @@ import requests
 # Detect connection to Google translate
 ConnectionOk = True
 try:
-	from deep_translator import (GoogleTranslator,
-                             DeepL,
-                             LingueeTranslator,
-                             MyMemoryTranslator,
-                             YandexTranslator,
-                             MicrosoftTranslator,
-							 exceptions)
+	from deep_translator import (GoogleTranslator, DeepL, LingueeTranslator, MyMemoryTranslator, YandexTranslator, exceptions)
 except:
 	ConnectionOk = False
 
@@ -299,18 +293,19 @@ def GUI():
 	TranslatorLabel.setToolTip("Select translator")
 	Layout.addRow(TranslatorLabel, TranslatorComboBox)
 
-	# Api key
+	# API key
 	ApiKeyHBL = QHBoxLayout()
 	ApiKeyHBL.setSpacing(5)
-	ApiKeyLabel = QLabel("Api key")
-	ApiKeyLabel.setToolTip("Enter your api key")
+	ApiKeyLabel = QLabel("API key")
+	ApiKeyLabel.setToolTip("Enter your API key")
 	ApiKeyLabel.setVisible(False)
 	ApiKeyLineEdit = QLineEdit()
-	ApiKeyLineEdit.setPlaceholderText("Enter your api key")
-	ApiKeyLineEdit.setToolTip("Enter your api key")
+	ApiKeyLineEdit.setPlaceholderText("Enter your API key")
+	ApiKeyLineEdit.setToolTip("Enter your API key")
 	ApiKeyLineEdit.setVisible(False)
 	ApiKeyHBL.addWidget(ApiKeyLineEdit)
 	ApiLinkLabel = QLabel()
+	ApiLinkLabel.setToolTip("Click... The API key provides access to the translator")
 	ApiLinkLabel.setOpenExternalLinks(True)
 	ApiLinkLabel.setVisible(False)
 	ApiKeyHBL.addWidget(ApiLinkLabel)
@@ -423,7 +418,7 @@ def GUI():
 	ApiKeyLineEdit.textChanged.connect(lambda: ApiKeyTextChanged(ApiKeyLineEdit))
 	SourceLangComboBox.currentIndexChanged.connect(lambda: CheckLanguages(SourceLangComboBox, TargetLangComboBox))
 	TargetLangComboBox.currentIndexChanged.connect(lambda: CheckLanguages(SourceLangComboBox, TargetLangComboBox))
-	FormButtonBox.accepted.connect(lambda: TranslateTmx(TranslatorComboBox.currentText(), ApiKeyLineEdit, SourceLangComboBox.currentText(), TargetLangComboBox.currentText(), TmxComboBox.currentText(), DialogInfo, LabelInfo))
+	FormButtonBox.accepted.connect(lambda: DialogAccepted(TranslatorComboBox.currentText(), ApiKeyLineEdit, SourceLangComboBox.currentText(), TargetLangComboBox.currentText(), TmxComboBox.currentText(), DialogInfo, LabelInfo))
 	FormButtonBox.rejected.connect(Dialog.reject)
 	DialogInfoPushButtonContinue.clicked.connect(lambda: DialogInfoContinue(DialogInfo))
 	DialogInfoPushButtonEnd.clicked.connect(lambda: DialogInfoEnd(Dialog, DialogInfo))
@@ -462,7 +457,7 @@ def TranslatorChanged(Text, ApiKeyLabel: QLabel, ApiLinkLabel: QLabel, ApiKeyLin
 	ApiLinkLabel.setText("<a style='color:yellow; text-decoration:none' href='" + TRANSLATORS_LINK[Text] + "'>ⓘ</a>")
 	ApiKeyLineEdit.setVisible(TRANSLATORS_API_KEY[Text])
 
-# Set default style of api key
+# Set default style of API key
 def ApiKeyTextChanged(ApiKeyLineEdit: QLineEdit):
 	ApiKeyLineEdit.setStyleSheet("")
 
@@ -476,9 +471,12 @@ def CheckLanguages(SourceLang: QComboBox, TargetLang: QComboBox):
 		TargetLang.setStyleSheet("")
 
 # Translate selected file from source to target language
-def TranslateTmx(Translator, ApiKeyLineEdit: QLineEdit, SourceLanguage, TargetLanguage, TmxFilePath, DialogInfo: QDialog, LabelInfo: QLabel):
+def DialogAccepted(Translator, ApiKeyLineEdit: QLineEdit, SourceLanguage, TargetLanguage, TmxFilePath, DialogInfo: QDialog, LabelInfo: QLabel):
+	# Get ApiKey
+	ApiKey = ApiKeyLineEdit.text()
+
 	# Source and target languages must be different
-	if (SourceLanguage != TargetLanguage) and ((ApiKeyLineEdit.text() != "") or not(TRANSLATORS_API_KEY[Translator])):
+	if (SourceLanguage != TargetLanguage) and ((ApiKey != "") or not(TRANSLATORS_API_KEY[Translator])):
 		if DEBUG: print("\n" + SourceLanguage + " -> " + TargetLanguage)
 
 		# Parse selected tmx
@@ -488,80 +486,101 @@ def TranslateTmx(Translator, ApiKeyLineEdit: QLineEdit, SourceLanguage, TargetLa
 		TmxTexts = getTextListFromDoc(TmxTree)
 
 		# Get unique list of texts to translate
-		TmxIDTexts = [*TmxTexts]
-		SourceLangList = []
-		for TmxIDText in TmxIDTexts:
-			SourceText = TmxTexts[TmxIDText].get(SourceLanguage)
-			TargetText = TmxTexts[TmxIDText].get(TargetLanguage)
-			if (SourceText != None) and (TargetText == None):
-				SourceLangList.append(SourceText)
-		SourceLangList = list(set(SourceLangList))
+		SourceLangList = GetTexts(TmxTexts, SourceLanguage, TargetLanguage)
 
 		# Translate texts with selected translator
-		DebugPrint("Input", SourceLangList)
-		TargetLangList = []
-		if SourceLangList != []:
-			try:
-				# Google
-				if Translator == TRANSLATORS[0]:
-					TargetLangList = GoogleTranslator(source = SourceLanguage, target = TargetLanguage).translate_batch(SourceLangList)
-				# DeepL
-				elif Translator == TRANSLATORS[1]:
-					TargetLangList = DeepL(api_key = ApiKeyLineEdit.text(), source = SourceLanguage, target = TargetLanguage).translate_batch(SourceLangList)
-				# Linguee
-				elif Translator == TRANSLATORS[2]:
-					TargetLangList = LingueeTranslator(source = SourceLanguage, target = TargetLanguage).translate_words(SourceLangList)
-				# MyMemory
-				elif Translator == TRANSLATORS[3]:
-					TargetLangList = MyMemoryTranslator(source = SourceLanguage, target = TargetLanguage).translate_batch(SourceLangList)
-				# Yandex
-				elif Translator == TRANSLATORS[4]:
-					TargetLangList = YandexTranslator(api_key = ApiKeyLineEdit.text(), source = SourceLanguage, target = TargetLanguage).translate_batch(SourceLangList)
-			except exceptions.LanguageNotSupportedException as Exception:
-				LabelInfo.setText(str(Exception))
-			except requests.exceptions.ConnectionError:
-				LabelInfo.setText("Connection error")
-			except exceptions.AuthorizationException:
-				LabelInfo.setText("Bad Api key")
-			except exceptions.ServerException:
-				LabelInfo.setText("No or bad Api key")
-			except:
-				LabelInfo.setText("Translator error")
-			
-			DebugPrint("Output", TargetLangList)
-		else:
-			LabelInfo.setText("No texts to translate")
-
-		# Add translated texts to read texts from file
-		if TargetLangList != []:
-			LabelInfo.setText("Texts have been translated")
-			TmxRoot = TmxTree.getroot()
-			Body = TmxRoot.find(".//body")
-			for Tu in Body.findall(".//tu"):
-				TargetLanguagePresent = False
-				for Tuv in Tu.findall(".//tuv"):
-					if Tuv.get("{http://www.w3.org/XML/1998/namespace}lang") == TargetLanguage:
-						TargetLanguagePresent = True
-				if not(TargetLanguagePresent):
-					for Tuv in Tu.findall(".//tuv"):
-						if Tuv.get("{http://www.w3.org/XML/1998/namespace}lang") == SourceLanguage:
-							for Index, SourceText in enumerate(SourceLangList):
-								if Tuv.find(".//seg").text == SourceText:
-									TuvNew = et.Element("tuv")
-									TuvNew.attrib = {"{http://www.w3.org/XML/1998/namespace}lang": TargetLanguage}
-									Seg = et.Element("seg")
-									Seg.text = TargetLangList[Index]
-									TuvNew.append(Seg)
-									Tu.insert(0,TuvNew)
-
-			TmxTree.write(os.path.join(LogicalPath, TmxFilePath))
+		TargetLangList = TranslateTexts(Translator, ApiKey,  SourceLanguage, TargetLanguage, SourceLangList, LabelInfo)
+		
+		# Add translated texts to the file
+		AppendTexts(TmxTree, SourceLanguage, TargetLanguage, SourceLangList, TargetLangList, TmxFilePath)
 
 		# Show info dialog
 		DialogInfo.show()
 
-	# Api key is empty
-	elif (ApiKeyLineEdit.text() == "") and TRANSLATORS_API_KEY[Translator]:
+	# API key is empty
+	elif (ApiKey == "") and TRANSLATORS_API_KEY[Translator]:
 		ApiKeyLineEdit.setStyleSheet("background:#661111;")
+
+# Get unique list of texts to translate
+def GetTexts(TmxTexts, SourceLanguage, TargetLanguage):
+	TmxIDTexts = [*TmxTexts]
+	SourceLangList = []
+	for TmxIDText in TmxIDTexts:
+		SourceText = TmxTexts[TmxIDText].get(SourceLanguage)
+		TargetText = TmxTexts[TmxIDText].get(TargetLanguage)
+		if (SourceText != None) and (TargetText == None):
+			SourceLangList.append(SourceText)
+	return list(set(SourceLangList))
+
+# Translate texts with selected translator
+def TranslateTexts(Translator, ApiKey,  SourceLanguage, TargetLanguage, SourceLangList, LabelInfo: QLabel):
+	DebugPrint("Input", SourceLangList)
+	TargetLangList = []
+	if SourceLangList != []:
+		try:
+			# Set positive label status
+			LabelInfo.setText("Texts have been translated")
+
+			# Google
+			if Translator == TRANSLATORS[0]:
+				TargetLangList = GoogleTranslator(source = SourceLanguage, target = TargetLanguage).translate_batch(SourceLangList)
+			# DeepL
+			elif Translator == TRANSLATORS[1]:
+				TargetLangList = DeepL(api_key = ApiKey, source = SourceLanguage, target = TargetLanguage).translate_batch(SourceLangList)
+			# Linguee
+			elif Translator == TRANSLATORS[2]:
+				TargetLangList = LingueeTranslator(source = SourceLanguage, target = TargetLanguage).translate_words(SourceLangList)
+			# MyMemory
+			elif Translator == TRANSLATORS[3]:
+				TargetLangList = MyMemoryTranslator(source = SourceLanguage, target = TargetLanguage).translate_batch(SourceLangList)
+			# Yandex
+			elif Translator == TRANSLATORS[4]:
+				TargetLangList = YandexTranslator(api_key = ApiKey, source = SourceLanguage, target = TargetLanguage).translate_batch(SourceLangList)
+
+		except exceptions.LanguageNotSupportedException as Exception:
+			LabelInfo.setText(str(Exception))
+
+		except requests.exceptions.ConnectionError:
+			LabelInfo.setText("Connection error")
+
+		except exceptions.AuthorizationException:
+			LabelInfo.setText("Bad API key")
+
+		except exceptions.ServerException:
+			LabelInfo.setText("No or bad API key")
+
+		except:
+			LabelInfo.setText("Translator error")
+		
+		DebugPrint("Output", TargetLangList)
+	else:
+		LabelInfo.setText("No texts to translate")
+
+	return TargetLangList
+
+# Add translated texts to the file
+def AppendTexts(TmxTree, SourceLanguage, TargetLanguage, SourceLangList, TargetLangList, TmxFilePath):
+	if TargetLangList != []:
+		TmxRoot = TmxTree.getroot()
+		Body = TmxRoot.find(".//body")
+		for Tu in Body.findall(".//tu"):
+			TargetLanguagePresent = False
+			for Tuv in Tu.findall(".//tuv"):
+				if Tuv.get("{http://www.w3.org/XML/1998/namespace}lang") == TargetLanguage:
+					TargetLanguagePresent = True
+			if not(TargetLanguagePresent):
+				for Tuv in Tu.findall(".//tuv"):
+					if Tuv.get("{http://www.w3.org/XML/1998/namespace}lang") == SourceLanguage:
+						for Index, SourceText in enumerate(SourceLangList):
+							if Tuv.find(".//seg").text == SourceText:
+								TuvNew = et.Element("tuv")
+								TuvNew.attrib = {"{http://www.w3.org/XML/1998/namespace}lang": TargetLanguage}
+								Seg = et.Element("seg")
+								Seg.text = TargetLangList[Index]
+								TuvNew.append(Seg)
+								Tu.insert(0,TuvNew)
+
+		TmxTree.write(os.path.join(LogicalPath, TmxFilePath))
 
 # Close dialog info and continue in translating
 def DialogInfoContinue(DialogInfo: QDialog):
