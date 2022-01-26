@@ -6,12 +6,14 @@ ScriptVersion = "v1.0.0"
 
 # TODO
 # Maybe offer language code if code-country is not supported
+# Add text "Translating may take a long time (depending on the amount of data to translate)"
+# User settings store in AppData (Translator, API key, Source and Target language, TMX)
 
 DEBUG = False
 
-import os, re, sys
+import os, sys
 import xml.etree.ElementTree as et
-from PyQt5 import QtCore, QtGui
+from PyQt5 import QtCore
 from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import *
 import requests
