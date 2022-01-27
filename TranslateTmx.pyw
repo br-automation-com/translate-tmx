@@ -6,7 +6,6 @@ ScriptVersion = "v1.0.0"
 
 # TODO
 # Maybe offer language code if code-country is not supported
-# Add text "Translating may take a long time (depending on the amount of data to translate)"
 # User settings store in AppData (Translator, API key, Source and Target language, TMX)
 
 DEBUG = False
@@ -19,11 +18,15 @@ from PyQt5.QtWidgets import *
 import requests
 
 # Detect connection to Google translate
-ConnectionOk = True
+ConnectionStatus = 0
 try:
 	from deep_translator import (GoogleTranslator, DeepL, LingueeTranslator, MyMemoryTranslator, YandexTranslator, exceptions)
+except requests.exceptions.ConnectionError:
+	ConnectionStatus = 1
+except ModuleNotFoundError:
+	ConnectionStatus = 2
 except:
-	ConnectionOk = False
+	ConnectionStatus = 3
 
 
 #####################################################################################################################################################
@@ -299,15 +302,15 @@ def GUI():
 	ApiKeyHBL = QHBoxLayout()
 	ApiKeyHBL.setSpacing(5)
 	ApiKeyLabel = QLabel("API key")
-	ApiKeyLabel.setToolTip("Enter your API key")
+	ApiKeyLabel.setToolTip("The API key provides access to the translator")
 	ApiKeyLabel.setVisible(False)
 	ApiKeyLineEdit = QLineEdit()
 	ApiKeyLineEdit.setPlaceholderText("Enter your API key")
-	ApiKeyLineEdit.setToolTip("Enter your API key")
+	ApiKeyLineEdit.setToolTip("The API key provides access to the translator")
 	ApiKeyLineEdit.setVisible(False)
 	ApiKeyHBL.addWidget(ApiKeyLineEdit)
 	ApiLinkLabel = QLabel()
-	ApiLinkLabel.setToolTip("Click... The API key provides access to the translator")
+	ApiLinkLabel.setToolTip("Click...")
 	ApiLinkLabel.setOpenExternalLinks(True)
 	ApiLinkLabel.setVisible(False)
 	ApiKeyHBL.addWidget(ApiLinkLabel)
@@ -337,6 +340,12 @@ def GUI():
 	TargetLangLabel = QLabel("Target language")
 	TargetLangLabel.setToolTip("Select the target language to which the texts will be translated")
 	Layout.addRow(TargetLangLabel, TargetLangComboBox)
+
+	# Waiting label
+	WaitingLabel = QLabel("Translating may take a long time (depending on the amount of data to translate)")
+	WaitingLabel.setStyleSheet("font: 20px \"Bahnschrift SemiLight SemiConde\";color:#666666;")
+	WaitingLabel.setMargin(10)
+	Layout.addRow(WaitingLabel)
 
 	# Creating a DialogInfo button for ok and cancel
 	FormButtonBox = QDialogButtonBox(QDialogButtonBox.Cancel | QDialogButtonBox.Ok)
@@ -622,6 +631,7 @@ def ErrorDialog(Message):
 	# Creating a group box
 	DialogVBL = QVBoxLayout(Dialog)
 	ErrorLabel = QLabel(Message)
+	ErrorLabel.setOpenExternalLinks(True)
 	DialogVBL.addWidget(ErrorLabel)
 	
 	# Show DialogInfo
@@ -638,8 +648,10 @@ ProjectName, ProjectPath, LogicalPath = GetProjectInfo()
 if ProjectName == "":
 	ErrorDialog("Directory Logical not found. Please copy this script to the LogicalView of your project.")
 
-elif not(ConnectionOk):
-	ErrorDialog("Unable to connect to the translate service.\n    1. Verify your internet connection\n    2. If you are in a corporate network, this feature may be blocked, use an external network")
+elif (ConnectionStatus == 1) or (ConnectionStatus == 3):
+	ErrorDialog("Unable to connect to the translate service.\n  - Verify your internet connection\n  - If you are in a corporate network, this feature may be blocked, use an external network")
+elif ConnectionStatus == 2:
+	ErrorDialog("Module deep_translator not found. Please use pip to install this module. <a style='color:yellow; text-decoration:none' href='https://pip.pypa.io/en/stable/cli/pip_install/'>How to use PIP.</a> <a style='color:yellow; text-decoration:none' href='https://pypi.org/project/deep-translator/#installation'>Installation of deep_translator.</a>")
 else:
 	# Get project languages
 	Languages = GetProjectLanguages()
