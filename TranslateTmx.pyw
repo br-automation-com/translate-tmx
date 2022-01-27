@@ -7,10 +7,13 @@ ScriptVersion = "v1.0.0"
 # TODO
 # Maybe offer language code if code-country is not supported
 # User settings store in AppData (Translator, API key, Source and Target language, TMX)
+# DeepL button Pro/Free
+# ModuleNotFound 2 labely
+# Výpis důvodů doby překladu (zahlcení serveru, množství, připojení)
 
 DEBUG = False
 
-import os, sys
+import os, sys, time
 import xml.etree.ElementTree as et
 from PyQt5 import QtCore
 from PyQt5.QtCore import Qt
@@ -27,7 +30,6 @@ except ModuleNotFoundError:
 	ConnectionStatus = 2
 except:
 	ConnectionStatus = 3
-
 
 #####################################################################################################################################################
 # Global variables and constants
@@ -87,12 +89,13 @@ def GetProjectInfo():
 
 # Get project languages
 def GetProjectLanguages():
-	LanguagePath = FindFilePath(LogicalPath, "Project.language", True)
-	LanguageTree = et.parse(LanguagePath)
-	LanguageRoot = LanguageTree.getroot()
+	LanguagePath = FindFilePath(LogicalPath, "Project.language", False)
 	Languages = []
-	for TmxItem in LanguageRoot.findall(".//Element"):
-		Languages.append(TmxItem.attrib["ID"])
+	if LanguagePath != "":
+		LanguageTree = et.parse(LanguagePath)
+		LanguageRoot = LanguageTree.getroot()
+		for TmxItem in LanguageRoot.findall(".//Element"):
+			Languages.append(TmxItem.attrib["ID"])
 
 	return Languages
 
@@ -336,7 +339,7 @@ def GUI():
 	TargetLangComboBox = QComboBox()
 	TargetLangComboBox.addItems(Languages)
 	TargetLangComboBox.setToolTip("Select the target language to which the texts will be translated")
-	TargetLangComboBox.setCurrentIndex(1)
+	# TargetLangComboBox.setCurrentIndex(1)
 	TargetLangLabel = QLabel("Target language")
 	TargetLangLabel.setToolTip("Select the target language to which the texts will be translated")
 	Layout.addRow(TargetLangLabel, TargetLangComboBox)
@@ -429,7 +432,7 @@ def GUI():
 	ApiKeyLineEdit.textChanged.connect(lambda: ApiKeyTextChanged(ApiKeyLineEdit))
 	SourceLangComboBox.currentIndexChanged.connect(lambda: CheckLanguages(SourceLangComboBox, TargetLangComboBox))
 	TargetLangComboBox.currentIndexChanged.connect(lambda: CheckLanguages(SourceLangComboBox, TargetLangComboBox))
-	FormButtonBox.accepted.connect(lambda: DialogAccepted(TranslatorComboBox.currentText(), ApiKeyLineEdit, SourceLangComboBox.currentText(), TargetLangComboBox.currentText(), TmxComboBox.currentText(), DialogInfo, LabelInfo))
+	FormButtonBox.accepted.connect(lambda: DialogAccepted(TranslatorComboBox.currentText(), ApiKeyLineEdit, SourceLangComboBox, TargetLangComboBox, TmxComboBox, DialogInfo, LabelInfo))
 	FormButtonBox.rejected.connect(Dialog.reject)
 	DialogInfoPushButtonContinue.clicked.connect(lambda: DialogInfoContinue(DialogInfo))
 	DialogInfoPushButtonEnd.clicked.connect(lambda: DialogInfoEnd(Dialog, DialogInfo))
@@ -482,12 +485,24 @@ def CheckLanguages(SourceLang: QComboBox, TargetLang: QComboBox):
 		TargetLang.setStyleSheet("")
 
 # Translate selected file from source to target language
-def DialogAccepted(Translator, ApiKeyLineEdit: QLineEdit, SourceLanguage, TargetLanguage, TmxFilePath, DialogInfo: QDialog, LabelInfo: QLabel):
-	# Get ApiKey
+def DialogAccepted(Translator, ApiKeyLineEdit: QLineEdit, SourceLanguageCB: QComboBox, TargetLanguageCB: QComboBox, TmxCB: QComboBox, DialogInfo: QDialog, LabelInfo: QLabel):
+	# Get GUI data
 	ApiKey = ApiKeyLineEdit.text()
+	SourceLanguage = SourceLanguageCB.currentText()
+	TargetLanguage = TargetLanguageCB.currentText()
+	TmxFilePath = TmxCB.currentText()
 
+	# API key is empty
+	if (ApiKey == "") and TRANSLATORS_API_KEY[Translator]:
+		ApiKeyLineEdit.setStyleSheet("background:#661111;")
 	# Source and target languages must be different
-	if (SourceLanguage != TargetLanguage) and ((ApiKey != "") or not(TRANSLATORS_API_KEY[Translator])):
+	elif SourceLanguage == TargetLanguage:
+		SourceLanguageCB.setStyleSheet("background:#661111;")
+		TargetLanguageCB.setStyleSheet("background:#661111;")
+	# TMX file path must be specified
+	elif TmxFilePath == "":
+		TmxCB.setStyleSheet("background:#661111;")
+	else:
 		if DEBUG: print("\n" + SourceLanguage + " -> " + TargetLanguage)
 
 		# Parse selected tmx
@@ -508,10 +523,6 @@ def DialogAccepted(Translator, ApiKeyLineEdit: QLineEdit, SourceLanguage, Target
 		# Show info dialog
 		DialogInfo.show()
 
-	# API key is empty
-	elif (ApiKey == "") and TRANSLATORS_API_KEY[Translator]:
-		ApiKeyLineEdit.setStyleSheet("background:#661111;")
-
 # Get unique list of texts to translate
 def GetTexts(TmxTexts, SourceLanguage, TargetLanguage):
 	TmxIDTexts = [*TmxTexts]
@@ -527,10 +538,11 @@ def GetTexts(TmxTexts, SourceLanguage, TargetLanguage):
 def TranslateTexts(Translator, ApiKey,  SourceLanguage, TargetLanguage, SourceLangList, LabelInfo: QLabel):
 	DebugPrint("Input", SourceLangList)
 	TargetLangList = []
+	StartTime = time.time()
 	if SourceLangList != []:
 		try:
 			# Set positive label status
-			LabelInfo.setText("Texts have been translated")
+			LabelInfo.setText("Clear")
 
 			# Google
 			if Translator == TRANSLATORS[0]:
@@ -560,12 +572,22 @@ def TranslateTexts(Translator, ApiKey,  SourceLanguage, TargetLanguage, SourceLa
 		except exceptions.ServerException:
 			LabelInfo.setText("No or bad API key")
 
+		except exceptions.TooManyRequests as Exception:
+			LabelInfo.setText("You have reached the translation limit of this translator for this day")
+			
 		except:
 			LabelInfo.setText("Translator error")
 		
 		DebugPrint("Output", TargetLangList)
 	else:
 		LabelInfo.setText("No texts to translate")
+	
+	# Caculate time of translation
+	EndTime = time.time()
+	if LabelInfo.text() == "Clear":
+		TotalTime = str(EndTime - StartTime)
+		TotalTime = TotalTime[:TotalTime.find(".") + 2]
+		LabelInfo.setText("Texts have been translated\nTotal time: " + TotalTime + " s")
 
 	return TargetLangList
 
@@ -603,7 +625,7 @@ def DialogInfoEnd(Dialog: QDialog, DialogInfo: QDialog):
 	Dialog.close()
 
 # Logical folder not found -> show error message
-def ErrorDialog(Message):
+def ErrorDialog(Message1, Message2 = "", Message3 = ""):
 	# Create DialogInfo gui
 	Gui = QApplication([])
 	Dialog = QDialog()
@@ -617,7 +639,7 @@ def ErrorDialog(Message):
 		QLabel{
 			background-color:transparent;
 			color:#bb2222;
-			padding: 10px;
+			padding: 5px;
 		}""")
 	Dialog.setWindowTitle("Error")
 	Dialog.setGeometry(0, 0, 600, 120)
@@ -630,9 +652,15 @@ def ErrorDialog(Message):
 
 	# Creating a group box
 	DialogVBL = QVBoxLayout(Dialog)
-	ErrorLabel = QLabel(Message)
-	ErrorLabel.setOpenExternalLinks(True)
-	DialogVBL.addWidget(ErrorLabel)
+	ErrorLabel1 = QLabel(Message1)
+	ErrorLabel1.setOpenExternalLinks(True)
+	DialogVBL.addWidget(ErrorLabel1)
+	ErrorLabel2 = QLabel(Message2)
+	ErrorLabel2.setOpenExternalLinks(True)
+	DialogVBL.addWidget(ErrorLabel2)
+	ErrorLabel3 = QLabel(Message3)
+	ErrorLabel3.setOpenExternalLinks(True)
+	DialogVBL.addWidget(ErrorLabel3)
 	
 	# Show DialogInfo
 	Dialog.show()
@@ -649,9 +677,9 @@ if ProjectName == "":
 	ErrorDialog("Directory Logical not found. Please copy this script to the LogicalView of your project.")
 
 elif (ConnectionStatus == 1) or (ConnectionStatus == 3):
-	ErrorDialog("Unable to connect to the translate service.\n  - Verify your internet connection\n  - If you are in a corporate network, this feature may be blocked, use an external network")
+	ErrorDialog("Unable to connect to the translate service.", "  - Verify your internet connection", "  - If you are in a corporate network, this feature may be blocked, use an external network")
 elif ConnectionStatus == 2:
-	ErrorDialog("Module deep_translator not found. Please use pip to install this module. <a style='color:yellow; text-decoration:none' href='https://pip.pypa.io/en/stable/cli/pip_install/'>How to use PIP.</a> <a style='color:yellow; text-decoration:none' href='https://pypi.org/project/deep-translator/#installation'>Installation of deep_translator.</a>")
+	ErrorDialog("Module deep_translator not found. Please use pip to install the module.", "<a style='color:yellow; text-decoration:none' href='https://pip.pypa.io/en/stable/cli/pip_install/'>How to use PIP</a>", "<a style='color:yellow; text-decoration:none' href='https://pypi.org/project/deep-translator/#installation'>Installation of deep_translator</a>")
 else:
 	# Get project languages
 	Languages = GetProjectLanguages()
