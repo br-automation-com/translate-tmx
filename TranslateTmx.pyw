@@ -6,14 +6,11 @@ ScriptVersion = "v1.0.0"
 
 # TODO
 # Maybe offer language code if code-country is not supported
-# User settings store in AppData (Translator, API key, Source and Target language, TMX)
-# DeepL button Pro/Free
-# ModuleNotFound 2 labely
-# Výpis důvodů doby překladu (zahlcení serveru, množství, připojení)
+# User settings store in AppData (loading to widgets)
 
-DEBUG = False
+DEBUG = True
 
-import os, sys, time
+import os, sys, time, pickle
 import xml.etree.ElementTree as et
 from PyQt5 import QtCore
 from PyQt5.QtCore import Qt
@@ -278,7 +275,7 @@ def GUI():
 
 	# Dialog.setWindowFlag(Qt.FramelessWindowHint) # Borderless window
 	Dialog.setWindowTitle(" ")
-	Dialog.setGeometry(0, 0, 700, 300)
+	Dialog.setGeometry(0, 0, 700, 400)
 
 	# Center window
 	Rectangle = Dialog.frameGeometry()
@@ -312,6 +309,14 @@ def GUI():
 	ApiKeyLineEdit.setToolTip("The API key provides access to the translator")
 	ApiKeyLineEdit.setVisible(False)
 	ApiKeyHBL.addWidget(ApiKeyLineEdit)
+	ApiFreePushButton = QPushButton()
+	ApiFreePushButton.setText("FREE")
+	ApiFreePushButton.setCheckable(True)
+	ApiFreePushButton.setChecked(True)
+	ApiFreePushButton.setVisible(False)
+	ApiFreePushButton.setToolTip("If checked, FREE DeepL API is used.\nIf unchecked, PRO DeepL API is used.")
+	ApiFreePushButton.setStyleSheet("width: 60px;")
+	ApiKeyHBL.addWidget(ApiFreePushButton)
 	ApiLinkLabel = QLabel()
 	ApiLinkLabel.setToolTip("Click...")
 	ApiLinkLabel.setOpenExternalLinks(True)
@@ -345,8 +350,8 @@ def GUI():
 	Layout.addRow(TargetLangLabel, TargetLangComboBox)
 
 	# Waiting label
-	WaitingLabel = QLabel("Translating may take a long time (depending on the amount of data to translate)")
-	WaitingLabel.setStyleSheet("font: 20px \"Bahnschrift SemiLight SemiConde\";color:#666666;")
+	WaitingLabel = QLabel("Translating may take a long time depending on server load, internet connection speed and\namount of translated data.")
+	WaitingLabel.setStyleSheet("font: 16px \"Bahnschrift SemiLight SemiConde\"; color:#666666;")
 	WaitingLabel.setMargin(10)
 	Layout.addRow(WaitingLabel)
 
@@ -428,11 +433,11 @@ def GUI():
 	DialogInfoVBL.addLayout(ButtonBoxHBL)
 
 	# Adding actions for form
-	TranslatorComboBox.currentTextChanged.connect(lambda Text: TranslatorChanged(Text, ApiKeyLabel, ApiLinkLabel, ApiKeyLineEdit))
+	TranslatorComboBox.currentTextChanged.connect(lambda Text: TranslatorChanged(Text, ApiKeyLabel, ApiLinkLabel, ApiKeyLineEdit, ApiFreePushButton))
 	ApiKeyLineEdit.textChanged.connect(lambda: ApiKeyTextChanged(ApiKeyLineEdit))
 	SourceLangComboBox.currentIndexChanged.connect(lambda: CheckLanguages(SourceLangComboBox, TargetLangComboBox))
 	TargetLangComboBox.currentIndexChanged.connect(lambda: CheckLanguages(SourceLangComboBox, TargetLangComboBox))
-	FormButtonBox.accepted.connect(lambda: DialogAccepted(TranslatorComboBox.currentText(), ApiKeyLineEdit, SourceLangComboBox, TargetLangComboBox, TmxComboBox, DialogInfo, LabelInfo))
+	FormButtonBox.accepted.connect(lambda: DialogAccepted(TranslatorComboBox.currentText(), ApiKeyLineEdit, ApiFreePushButton.isChecked(), SourceLangComboBox, TargetLangComboBox, TmxComboBox, DialogInfo, LabelInfo))
 	FormButtonBox.rejected.connect(Dialog.reject)
 	DialogInfoPushButtonContinue.clicked.connect(lambda: DialogInfoContinue(DialogInfo))
 	DialogInfoPushButtonEnd.clicked.connect(lambda: DialogInfoEnd(Dialog, DialogInfo))
@@ -465,11 +470,15 @@ def ChangeTranslateText(Button: QPushButton):
 		Button.setText("Translating..")
 
 # Translator changed
-def TranslatorChanged(Text, ApiKeyLabel: QLabel, ApiLinkLabel: QLabel, ApiKeyLineEdit: QLineEdit):
+def TranslatorChanged(Text, ApiKeyLabel: QLabel, ApiLinkLabel: QLabel, ApiKeyLineEdit: QLineEdit, ApiFreePushButton: QPushButton):
 	ApiKeyLabel.setVisible(TRANSLATORS_API_KEY[Text])
 	ApiLinkLabel.setVisible(TRANSLATORS_API_KEY[Text])
 	ApiLinkLabel.setText("<a style='color:yellow; text-decoration:none' href='" + TRANSLATORS_LINK[Text] + "'>ⓘ</a>")
 	ApiKeyLineEdit.setVisible(TRANSLATORS_API_KEY[Text])
+	if "DeepL" in Text:
+		ApiFreePushButton.setVisible(True)
+	else:
+		ApiFreePushButton.setVisible(False)
 
 # Set default style of API key
 def ApiKeyTextChanged(ApiKeyLineEdit: QLineEdit):
@@ -485,7 +494,7 @@ def CheckLanguages(SourceLang: QComboBox, TargetLang: QComboBox):
 		TargetLang.setStyleSheet("")
 
 # Translate selected file from source to target language
-def DialogAccepted(Translator, ApiKeyLineEdit: QLineEdit, SourceLanguageCB: QComboBox, TargetLanguageCB: QComboBox, TmxCB: QComboBox, DialogInfo: QDialog, LabelInfo: QLabel):
+def DialogAccepted(Translator, ApiKeyLineEdit: QLineEdit, ApiFree, SourceLanguageCB: QComboBox, TargetLanguageCB: QComboBox, TmxCB: QComboBox, DialogInfo: QDialog, LabelInfo: QLabel):
 	# Get GUI data
 	ApiKey = ApiKeyLineEdit.text()
 	SourceLanguage = SourceLanguageCB.currentText()
@@ -515,10 +524,24 @@ def DialogAccepted(Translator, ApiKeyLineEdit: QLineEdit, SourceLanguageCB: QCom
 		SourceLangList = GetTexts(TmxTexts, SourceLanguage, TargetLanguage)
 
 		# Translate texts with selected translator
-		TargetLangList = TranslateTexts(Translator, ApiKey,  SourceLanguage, TargetLanguage, SourceLangList, LabelInfo)
+		TargetLangList = TranslateTexts(Translator, ApiKey, ApiFree, SourceLanguage, TargetLanguage, SourceLangList, LabelInfo)
 		
 		# Add translated texts to the file
 		AppendTexts(TmxTree, SourceLanguage, TargetLanguage, SourceLangList, TargetLangList, TmxFilePath)
+
+		# Store user data
+		UserData["Translator"] = Translator
+		if Translator == TRANSLATORS[1]:
+			UserData["APIDeepL"] = ApiKey
+		elif Translator == TRANSLATORS[4]:
+			UserData["APIYandex"] = ApiKey
+		UserData["DeepLFree"] = ApiFree
+		UserData["TmxFile"] = TmxFilePath
+		UserData["SourceLanguage"] = SourceLanguage
+		UserData["TargetLanguage"] = TargetLanguage
+		
+		with open(UserDataPath, "wb") as TranslateTmxSettings:
+			pickle.dump(UserData, TranslateTmxSettings)
 
 		# Show info dialog
 		DialogInfo.show()
@@ -535,7 +558,7 @@ def GetTexts(TmxTexts, SourceLanguage, TargetLanguage):
 	return list(set(SourceLangList))
 
 # Translate texts with selected translator
-def TranslateTexts(Translator, ApiKey,  SourceLanguage, TargetLanguage, SourceLangList, LabelInfo: QLabel):
+def TranslateTexts(Translator, ApiKey, ApiFree, SourceLanguage, TargetLanguage, SourceLangList, LabelInfo: QLabel):
 	DebugPrint("Input", SourceLangList)
 	TargetLangList = []
 	StartTime = time.time()
@@ -549,7 +572,7 @@ def TranslateTexts(Translator, ApiKey,  SourceLanguage, TargetLanguage, SourceLa
 				TargetLangList = GoogleTranslator(source = SourceLanguage, target = TargetLanguage).translate_batch(SourceLangList)
 			# DeepL
 			elif Translator == TRANSLATORS[1]:
-				TargetLangList = DeepL(api_key = ApiKey, source = SourceLanguage, target = TargetLanguage).translate_batch(SourceLangList)
+				TargetLangList = DeepL(api_key = ApiKey, source = SourceLanguage, target = TargetLanguage, use_free_api = ApiFree).translate_batch(SourceLangList)
 			# Linguee
 			elif Translator == TRANSLATORS[2]:
 				TargetLangList = LingueeTranslator(source = SourceLanguage, target = TargetLanguage).translate_words(SourceLangList)
@@ -688,5 +711,22 @@ else:
 	# Get all paths to valid tmx files
 	TmxPaths, TmxCutPaths = GetTmxPaths()
 	DebugPrint("TmxPaths", TmxCutPaths)
+
+	# Get path to user data
+	UserDataPath = os.path.join(os.getenv("APPDATA"), "BR", "Scripts", "TranslateTmx", ProjectName)
+	if not os.path.isdir(os.path.dirname(UserDataPath)):
+		os.makedirs(os.path.dirname(UserDataPath))
+
+	# Load user data
+	try:
+		with open(UserDataPath, "rb") as TranslateTmxSettings:
+			UserData = pickle.load(TranslateTmxSettings)
+	except:
+		UserData = {"Translator": TRANSLATORS[0], "APIDeepL": "", "APIYandex": "", "DeepLFree": True, "TmxFile": "", "SourceLanguage": "", "TargetLanguage": ""}
+
+	if (len(UserData) != 7):
+		UserData = {"Translator": TRANSLATORS[0], "APIDeepL": "", "APIYandex": "", "DeepLFree": True, "TmxFile": "", "SourceLanguage": "", "TargetLanguage": ""}
+
+	DebugPrint("UserData", UserData)
 
 	GUI()
