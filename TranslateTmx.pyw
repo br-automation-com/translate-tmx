@@ -5,10 +5,8 @@
 ScriptVersion = "v1.0.0"
 
 # TODO
-# Maybe offer language code if code-country is not supported
-# User settings store in AppData (loading to widgets)
 
-DEBUG = True
+DEBUG = False
 
 import os, sys, time, pickle
 import xml.etree.ElementTree as et
@@ -31,6 +29,8 @@ except:
 #####################################################################################################################################################
 # Global variables and constants
 #####################################################################################################################################################
+NewLanguage = ""
+
 TRANSLATORS = ["Google Translator", "DeepL Translator", "Linguee Translator", "MyMemory Translator", "Yandex Translator"]
 TRANSLATORS_API_KEY = {"Google Translator": False, "DeepL Translator": True, "Linguee Translator": False, "MyMemory Translator": False, "Yandex Translator": True}
 TRANSLATORS_LINK = {"Google Translator": "", "DeepL Translator": "https://www.deepl.com/pro-api?cta=header-pro-api/", "Linguee Translator": "", "MyMemory Translator": "", "Yandex Translator": "https://yandex.com/dev/translate/"}
@@ -275,7 +275,7 @@ def GUI():
 
 	# Dialog.setWindowFlag(Qt.FramelessWindowHint) # Borderless window
 	Dialog.setWindowTitle(" ")
-	Dialog.setGeometry(0, 0, 700, 400)
+	Dialog.setGeometry(0, 0, 800, 400)
 
 	# Center window
 	Rectangle = Dialog.frameGeometry()
@@ -294,6 +294,7 @@ def GUI():
 	TranslatorComboBox = QComboBox()
 	TranslatorComboBox.addItems(TRANSLATORS)
 	TranslatorComboBox.setToolTip("Select translator")
+	TranslatorComboBox.setCurrentText(UserData["Translator"])
 	TranslatorLabel = QLabel("Translator")
 	TranslatorLabel.setToolTip("Select translator")
 	Layout.addRow(TranslatorLabel, TranslatorComboBox)
@@ -312,7 +313,7 @@ def GUI():
 	ApiFreePushButton = QPushButton()
 	ApiFreePushButton.setText("FREE")
 	ApiFreePushButton.setCheckable(True)
-	ApiFreePushButton.setChecked(True)
+	ApiFreePushButton.setChecked(UserData["DeepLFree"])
 	ApiFreePushButton.setVisible(False)
 	ApiFreePushButton.setToolTip("If checked, FREE DeepL API is used.\nIf unchecked, PRO DeepL API is used.")
 	ApiFreePushButton.setStyleSheet("width: 60px;")
@@ -324,10 +325,15 @@ def GUI():
 	ApiKeyHBL.addWidget(ApiLinkLabel)
 	Layout.addRow(ApiKeyLabel, ApiKeyHBL)
 
+	# Init visibility of API key
+	TranslatorChanged(UserData["Translator"], ApiKeyLabel, ApiLinkLabel, ApiKeyLineEdit, ApiFreePushButton)
+
 	# Tmx selection
 	TmxComboBox = QComboBox()
 	TmxComboBox.addItems(TmxCutPaths)
 	TmxComboBox.setToolTip("Select tmx file to translate")
+	if (UserData["TmxFile"] != "") and (UserData["TmxFile"] in TmxCutPaths):
+		TmxComboBox.setCurrentText(UserData["TmxFile"])
 	TmxLabel = QLabel("Tmx file")
 	TmxLabel.setToolTip("Select tmx file to translate")
 	Layout.addRow(TmxLabel, TmxComboBox)
@@ -336,6 +342,8 @@ def GUI():
 	SourceLangComboBox = QComboBox()
 	SourceLangComboBox.addItems(Languages)
 	SourceLangComboBox.setToolTip("Select the source language from which the texts will be translated")
+	if (UserData["SourceLanguage"] != "") and (UserData["SourceLanguage"] in Languages):
+		SourceLangComboBox.setCurrentText(UserData["SourceLanguage"])
 	SourceLangLabel = QLabel("Source language")
 	SourceLangLabel.setToolTip("Select the source language from which the texts will be translated")
 	Layout.addRow(SourceLangLabel, SourceLangComboBox)
@@ -344,14 +352,17 @@ def GUI():
 	TargetLangComboBox = QComboBox()
 	TargetLangComboBox.addItems(Languages)
 	TargetLangComboBox.setToolTip("Select the target language to which the texts will be translated")
-	# TargetLangComboBox.setCurrentIndex(1)
+	if (UserData["TargetLanguage"] != "") and (UserData["TargetLanguage"] in Languages):
+		TargetLangComboBox.setCurrentText(UserData["TargetLanguage"])
+	elif len(Languages) > 1:
+		TargetLangComboBox.setCurrentIndex(1)
 	TargetLangLabel = QLabel("Target language")
 	TargetLangLabel.setToolTip("Select the target language to which the texts will be translated")
 	Layout.addRow(TargetLangLabel, TargetLangComboBox)
 
 	# Waiting label
-	WaitingLabel = QLabel("Translating may take a long time depending on server load, internet connection speed and\namount of translated data.")
-	WaitingLabel.setStyleSheet("font: 16px \"Bahnschrift SemiLight SemiConde\"; color:#666666;")
+	WaitingLabel = QLabel("Translating may take a long time depending on server load, internet connection speed and amount of translated data.")
+	WaitingLabel.setStyleSheet("font: 14px \"Bahnschrift SemiLight SemiConde\"; color:#666666;")
 	WaitingLabel.setMargin(10)
 	Layout.addRow(WaitingLabel)
 
@@ -422,13 +433,18 @@ def GUI():
 	DialogInfoVBL.addWidget(LabelInfo)
 	
 	ButtonBoxHBL = QHBoxLayout()
-	DialogInfoPushButtonContinue = QPushButton()
-	DialogInfoPushButtonContinue.setText("Continue")
-	ButtonBoxHBL.addWidget(DialogInfoPushButtonContinue)
+	DialogInfoContinuePB = QPushButton()
+	DialogInfoContinuePB.setText("Continue")
+	ButtonBoxHBL.addWidget(DialogInfoContinuePB)
 
-	DialogInfoPushButtonEnd = QPushButton()
-	DialogInfoPushButtonEnd.setText("End")
-	ButtonBoxHBL.addWidget(DialogInfoPushButtonEnd)
+	DialogInfoNoPB = QPushButton()
+	DialogInfoNoPB.setText("No")
+	DialogInfoNoPB.setVisible(False)
+	ButtonBoxHBL.addWidget(DialogInfoNoPB)
+
+	DialogInfoExitPB = QPushButton()
+	DialogInfoExitPB.setText("Exit")
+	ButtonBoxHBL.addWidget(DialogInfoExitPB)
 	
 	DialogInfoVBL.addLayout(ButtonBoxHBL)
 
@@ -437,11 +453,12 @@ def GUI():
 	ApiKeyLineEdit.textChanged.connect(lambda: ApiKeyTextChanged(ApiKeyLineEdit))
 	SourceLangComboBox.currentIndexChanged.connect(lambda: CheckLanguages(SourceLangComboBox, TargetLangComboBox))
 	TargetLangComboBox.currentIndexChanged.connect(lambda: CheckLanguages(SourceLangComboBox, TargetLangComboBox))
-	FormButtonBox.accepted.connect(lambda: DialogAccepted(TranslatorComboBox.currentText(), ApiKeyLineEdit, ApiFreePushButton.isChecked(), SourceLangComboBox, TargetLangComboBox, TmxComboBox, DialogInfo, LabelInfo))
+	FormButtonBox.accepted.connect(lambda: StartTimer(TranslatingTimer, FormButtonBox.button(QDialogButtonBox.Ok)))
 	FormButtonBox.rejected.connect(Dialog.reject)
-	DialogInfoPushButtonContinue.clicked.connect(lambda: DialogInfoContinue(DialogInfo))
-	DialogInfoPushButtonEnd.clicked.connect(lambda: DialogInfoEnd(Dialog, DialogInfo))
-	TranslatingTimer.timeout.connect(lambda: ChangeTranslateText(FormButtonBox.button(QDialogButtonBox.Ok)))
+	DialogInfoContinuePB.clicked.connect(lambda: DialogInfoContinue(DialogInfo, DialogInfoContinuePB, TranslatingTimer, FormButtonBox.button(QDialogButtonBox.Ok)))
+	DialogInfoNoPB.clicked.connect(lambda: DialogInfoNo(DialogInfo, DialogInfoContinuePB, DialogInfoNoPB))
+	DialogInfoExitPB.clicked.connect(lambda: DialogInfoExit(Dialog, DialogInfo))
+	TranslatingTimer.timeout.connect(lambda: DialogAccepted(TranslatingTimer, TranslatorComboBox.currentText(), ApiKeyLineEdit, ApiFreePushButton.isChecked(), SourceLangComboBox, TargetLangComboBox, TmxComboBox, DialogInfo, LabelInfo, FormButtonBox.button(QDialogButtonBox.Ok), DialogInfoContinuePB, DialogInfoNoPB))
 
 	# Creating a vertical layout
 	MainLayout = QVBoxLayout()
@@ -460,14 +477,10 @@ def GUI():
 
 	Gui.exec()
 
-# Translating status text
-def ChangeTranslateText(Button: QPushButton):
-	if "..." in Button.text():
-		Button.setText("Translating.")
-	elif ".." in Button.text():
-		Button.setText("Translating...")
-	else:
-		Button.setText("Translating..")
+# Start timer
+def StartTimer(Timer: QtCore.QTimer, TranslateButton: QPushButton):
+	TranslateButton.setText("Translating...")
+	Timer.start(100)
 
 # Translator changed
 def TranslatorChanged(Text, ApiKeyLabel: QLabel, ApiLinkLabel: QLabel, ApiKeyLineEdit: QLineEdit, ApiFreePushButton: QPushButton):
@@ -477,8 +490,13 @@ def TranslatorChanged(Text, ApiKeyLabel: QLabel, ApiLinkLabel: QLabel, ApiKeyLin
 	ApiKeyLineEdit.setVisible(TRANSLATORS_API_KEY[Text])
 	if "DeepL" in Text:
 		ApiFreePushButton.setVisible(True)
+		if UserData["APIDeepL"] != "":
+			ApiKeyLineEdit.setText(UserData["APIDeepL"])
 	else:
 		ApiFreePushButton.setVisible(False)
+	if "Yandex" in Text:
+		if UserData["APIYandex"] != "":
+			ApiKeyLineEdit.setText(UserData["APIYandex"])
 
 # Set default style of API key
 def ApiKeyTextChanged(ApiKeyLineEdit: QLineEdit):
@@ -494,7 +512,10 @@ def CheckLanguages(SourceLang: QComboBox, TargetLang: QComboBox):
 		TargetLang.setStyleSheet("")
 
 # Translate selected file from source to target language
-def DialogAccepted(Translator, ApiKeyLineEdit: QLineEdit, ApiFree, SourceLanguageCB: QComboBox, TargetLanguageCB: QComboBox, TmxCB: QComboBox, DialogInfo: QDialog, LabelInfo: QLabel):
+def DialogAccepted(Timer: QtCore.QTimer, Translator, ApiKeyLineEdit: QLineEdit, ApiFree, SourceLanguageCB: QComboBox, TargetLanguageCB: QComboBox, TmxCB: QComboBox, DialogInfo: QDialog, LabelInfo: QLabel, Button: QPushButton, DialogInfoContinuePB: QPushButton, DialogInfoNoPB: QPushButton):
+	# Stop timer
+	Timer.stop()
+
 	# Get GUI data
 	ApiKey = ApiKeyLineEdit.text()
 	SourceLanguage = SourceLanguageCB.currentText()
@@ -524,7 +545,7 @@ def DialogAccepted(Translator, ApiKeyLineEdit: QLineEdit, ApiFree, SourceLanguag
 		SourceLangList = GetTexts(TmxTexts, SourceLanguage, TargetLanguage)
 
 		# Translate texts with selected translator
-		TargetLangList = TranslateTexts(Translator, ApiKey, ApiFree, SourceLanguage, TargetLanguage, SourceLangList, LabelInfo)
+		TargetLangList = TranslateTexts(Translator, ApiKey, ApiFree, SourceLanguage, TargetLanguage, SourceLangList, LabelInfo, DialogInfoContinuePB, DialogInfoNoPB)
 		
 		# Add translated texts to the file
 		AppendTexts(TmxTree, SourceLanguage, TargetLanguage, SourceLangList, TargetLangList, TmxFilePath)
@@ -543,6 +564,9 @@ def DialogAccepted(Translator, ApiKeyLineEdit: QLineEdit, ApiFree, SourceLanguag
 		with open(UserDataPath, "wb") as TranslateTmxSettings:
 			pickle.dump(UserData, TranslateTmxSettings)
 
+		# Set text of Translate button back
+		Button.setText("Translate")
+
 		# Show info dialog
 		DialogInfo.show()
 
@@ -558,10 +582,15 @@ def GetTexts(TmxTexts, SourceLanguage, TargetLanguage):
 	return list(set(SourceLangList))
 
 # Translate texts with selected translator
-def TranslateTexts(Translator, ApiKey, ApiFree, SourceLanguage, TargetLanguage, SourceLangList, LabelInfo: QLabel):
+def TranslateTexts(Translator, ApiKey, ApiFree, SourceLanguage, TargetLanguage, SourceLangList, LabelInfo: QLabel, DialogInfoContinuePB: QPushButton, DialogInfoNoPB: QPushButton):
 	DebugPrint("Input", SourceLangList)
 	TargetLangList = []
 	StartTime = time.time()
+	global NewLanguage
+	if DialogInfoContinuePB.text() == "Yes":
+		DialogInfoContinuePB.setText("Continue")
+		DialogInfoNoPB.setVisible(False)
+		TargetLanguage = NewLanguage
 	if SourceLangList != []:
 		try:
 			# Set positive label status
@@ -584,7 +613,20 @@ def TranslateTexts(Translator, ApiKey, ApiFree, SourceLanguage, TargetLanguage, 
 				TargetLangList = YandexTranslator(api_key = ApiKey, source = SourceLanguage, target = TargetLanguage).translate_batch(SourceLangList)
 
 		except exceptions.LanguageNotSupportedException as Exception:
-			LabelInfo.setText(str(Exception))
+			if str(Exception).find("-->") != -1:
+				Language = str(Exception)[:str(Exception).find("-->") - 1]
+				if "-" in Language:
+					NewLanguage = Language[:Language.find("-")]
+					if SourceLanguage != NewLanguage:
+						DialogInfoContinuePB.setText("Yes")
+						DialogInfoNoPB.setVisible(True)
+						LabelInfo.setText("Language <span style='color:#aa0000;font-weight:bold;'>" + Language + "</span> is not supported.<br/>Do you want to use <span style='color:#eedd22;font-weight:bold;'>" + NewLanguage + "</span> language instead?")
+					else:
+						LabelInfo.setText("Language <span style='color:#aa0000;font-weight:bold;'>" + Language + "</span> is not supported.<br/>I would offer you to use <span style='color:#eedd22;font-weight:bold;'>" + NewLanguage + "</span> language, but it is the source language.")
+				else:
+					LabelInfo.setText("Language <span style='color:#aa0000;font-weight:bold;'>" + Language + "</span> is not supported.")
+			else:
+				LabelInfo.setText(str(Exception))
 
 		except requests.exceptions.ConnectionError:
 			LabelInfo.setText("Connection error")
@@ -639,11 +681,20 @@ def AppendTexts(TmxTree, SourceLanguage, TargetLanguage, SourceLangList, TargetL
 		TmxTree.write(os.path.join(LogicalPath, TmxFilePath))
 
 # Close dialog info and continue in translating
-def DialogInfoContinue(DialogInfo: QDialog):
+def DialogInfoContinue(DialogInfo: QDialog, ContinuePB: QPushButton, Timer: QtCore.QTimer, TranslateButton: QPushButton):
+	if ContinuePB.text() == "Yes":
+		StartTimer(Timer, TranslateButton)
+
+	DialogInfo.close()
+
+# Close dialog info and continue in translating
+def DialogInfoNo(DialogInfo: QDialog, DialogInfoContinuePB: QPushButton, DialogInfoNoPB: QPushButton):
+	DialogInfoNoPB.setVisible(False)
+	DialogInfoContinuePB.setText("Continue")
 	DialogInfo.close()
 
 # Close dialog info and also main dialog
-def DialogInfoEnd(Dialog: QDialog, DialogInfo: QDialog):
+def DialogInfoExit(Dialog: QDialog, DialogInfo: QDialog):
 	DialogInfo.close()
 	Dialog.close()
 
