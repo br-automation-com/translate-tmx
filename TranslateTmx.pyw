@@ -55,11 +55,10 @@ class MainWindow(QWidget):
 		# Window functions
 		Self.CreateGlobalWidgets()
 		Self.CreateFormWidgets()
-		Self.AdjustWindowSize()
 		Self.CreateActions()
 
 		# Show window
-		Self.show()
+		ShowAdjusted(Self)
 
 	# Global widgets of the window
 	def CreateGlobalWidgets(Self):
@@ -311,15 +310,6 @@ class MainWindow(QWidget):
 		# Timer for translate waiting
 		Self.TranslatingT = QTimer()
 
-	# Adjusts window size and moves window to the center
-	def AdjustWindowSize(Self):
-		# Center window
-		Self.adjustSize()
-		Rectangle = Self.frameGeometry()
-		CenterPoint = QDesktopWidget().availableGeometry().center()
-		Rectangle.moveCenter(CenterPoint)
-		Self.move(Rectangle.topLeft())
-
 	# Window actions
 	def CreateActions(Self):
 		# Actions of global buttons
@@ -455,7 +445,7 @@ class MainWindow(QWidget):
 		Self.BottomBar.OkPB.setText("Translate")
 
 		# Show info dialog
-		Self.InfoD.show()
+		ShowAdjusted(Self.InfoD)
 
 	# Get unique list of texts to translate
 	def GetTexts(Self, TmxTexts, SourceLanguage, TargetLanguage):
@@ -745,6 +735,7 @@ class InfoDialog(QDialog):
 		Self.setWindowFlag(Qt.FramelessWindowHint)
 		Self.resize(300, 140)
 		Self.setModal(True)
+		Self.setWindowTitle("Info")
 		Self.setStyleSheet("""
 			QWidget{
 				background-color:qlineargradient(spread:pad, x1:1, y1:0, x2:1, y2:1, stop:0 rgba(0, 0, 0, 255), stop:1 rgba(20, 20, 20, 255));
@@ -760,6 +751,7 @@ class InfoDialog(QDialog):
 				background-color:transparent;
 				color:#888888;
 				qproperty-alignment: \'AlignVCenter | AlignCenter\';
+				padding: 10px;
 			}
 
 			QPushButton{
@@ -830,20 +822,24 @@ class ErrorDialog(QDialog):
 			ErrorL = QLabel(Message)
 			ErrorL.setOpenExternalLinks(True)
 			DialogVBL.addWidget(ErrorL)
-
-		# Adjust window size and position
-		Self.adjustSize()
-		Rectangle = Self.frameGeometry()
-		CenterPoint = QDesktopWidget().availableGeometry().center()
-		Rectangle.moveCenter(CenterPoint)
-		Self.move(Rectangle.topLeft())
 	
 		# Show dialog
-		Self.show()
+		ShowAdjusted(Self)
 
 #####################################################################################################################################################
 # Global functions
 #####################################################################################################################################################
+# Show widget with adjusted size
+def ShowAdjusted(Widget: QWidget):
+	# Adjust window size and position (must be twice to really adjust the size)
+	Widget.adjustSize()
+	Widget.adjustSize()
+	Rectangle = Widget.frameGeometry()
+	CenterPoint = QDesktopWidget().availableGeometry().center()
+	Rectangle.moveCenter(CenterPoint)
+	Widget.move(Rectangle.topLeft())
+	Widget.show()
+
 # Debug printing
 def DebugPrint(Message, Data):
 	if DEBUG: print(">> " + Message + " >> " + str(Data))
