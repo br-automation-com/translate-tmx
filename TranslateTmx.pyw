@@ -245,7 +245,7 @@ class MainWindow(QWidget):
 		Self.ApiKeyL.setToolTip("The API key provides access to the translator")
 		Self.ApiKeyL.setVisible(False)
 		Self.ApiKeyLE = QLineEdit()
-		Self.ApiKeyLE.setFixedWidth(450)
+		Self.ApiKeyLE.setMinimumWidth(450)
 		Self.ApiKeyLE.setPlaceholderText("Enter your API key")
 		Self.ApiKeyLE.setToolTip("The API key provides access to the translator")
 		Self.ApiKeyLE.setVisible(False)
