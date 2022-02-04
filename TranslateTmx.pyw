@@ -55,9 +55,8 @@ class MainWindow(QWidget):
 		# Window functions
 		Self.CreateGlobalWidgets()
 		Self.CreateFormWidgets()
-		Self.CreateInfoDialog()
-		Self.CreateActions()
 		Self.AdjustWindowSize()
+		Self.CreateActions()
 
 		# Show window
 		Self.show()
@@ -75,6 +74,9 @@ class MainWindow(QWidget):
 		# Create bottom button bar
 		Self.BottomBar = BottomBar(Self)
 		
+		# Create info dialog to inform the user
+		Self.InfoD = InfoDialog()
+
 		# Adjust window size
 		Self.resize(800, Self.TitleBar.height())
 		Self.setMaximumSize(1920, 1080)
@@ -309,89 +311,6 @@ class MainWindow(QWidget):
 		# Timer for translate waiting
 		Self.TranslatingT = QTimer()
 
-	# Info dialog to inform the user
-	def CreateInfoDialog(Self):
-		# Info dialog
-		Self.InfoD = QDialog()
-		Self.InfoD.setObjectName("InfoD")
-		Self.InfoD.setWindowFlag(Qt.FramelessWindowHint)
-		Self.InfoD.resize(300, 140)
-		Self.InfoD.setModal(True)
-		Self.InfoD.setStyleSheet("""
-			QWidget{
-				background-color:qlineargradient(spread:pad, x1:1, y1:0, x2:1, y2:1, stop:0 rgba(0, 0, 0, 255), stop:1 rgba(20, 20, 20, 255));
-				color:#cccccc;
-				font: 24px \"Bahnschrift SemiLight SemiConde\";
-			}
-
-			QDialog#InfoD{
-				border: 2px solid gray;
-			}
-
-			QLabel{
-				background-color:transparent;
-				color:#888888;
-				qproperty-alignment: \'AlignVCenter | AlignCenter\';
-			}
-
-			QPushButton{
-				background-color: #222222;
-				width: 180px;
-				height: 50px;
-				border-style:solid;
-				color:#cccccc;
-				border-radius:8px;
-			}
-
-			QPushButton:hover{
-				color:#cccccc;
-				background-color: qlineargradient(spread:pad, x1:0.517, y1:0, x2:0.517, y2:1, stop:0 rgba(55, 55, 55, 255), stop:0.505682 rgba(55, 55, 55, 255), stop:1 rgba(40, 40, 40, 255));
-			}
-
-			QPushButton:pressed{
-				background-color: qlineargradient(spread:pad, x1:0.517, y1:0, x2:0.517, y2:1, stop:0 rgba(45, 45, 45, 255), stop:0.505682 rgba(40, 40, 40, 255), stop:1 rgba(45, 45, 45, 255));
-				color:#ffffff;
-			}
-			""")
-
-		InfoVBL = QVBoxLayout(Self.InfoD)
-
-		Self.InfoL = QLabel()
-		InfoVBL.addWidget(Self.InfoL)
-		
-		ButtonBoxHBL = QHBoxLayout()
-		Self.InfoContinuePB = QPushButton()
-		Self.InfoContinuePB.setText("Continue")
-		ButtonBoxHBL.addWidget(Self.InfoContinuePB)
-
-		Self.InfoNoPB = QPushButton()
-		Self.InfoNoPB.setText("No")
-		Self.InfoNoPB.setVisible(False)
-		ButtonBoxHBL.addWidget(Self.InfoNoPB)
-
-		Self.InfoExitPB = QPushButton()
-		Self.InfoExitPB.setText("Exit")
-		ButtonBoxHBL.addWidget(Self.InfoExitPB)
-		
-		InfoVBL.addLayout(ButtonBoxHBL)
-
-	# Window actions
-	def CreateActions(Self):
-		# Actions of global buttons
-		Self.TranslatingT.timeout.connect(Self.aGuiAccepted)
-		Self.BottomBar.CancelPB.clicked.connect(Self.close)
-
-		# Actions of form widgets
-		Self.TranslatorCB.currentTextChanged.connect(Self.aTranslatorTextChanged)
-		Self.ApiKeyLE.textChanged.connect(Self.aApiKeyTextChanged)
-		Self.SourceLangCB.currentIndexChanged.connect(Self.CheckLanguages)
-		Self.TargetLangCB.currentIndexChanged.connect(Self.CheckLanguages)
-		Self.BottomBar.OkPB.clicked.connect(Self.StartTimer)
-		Self.BottomBar.CancelPB.clicked.connect(Self.close)
-		Self.InfoContinuePB.clicked.connect(Self.DialogInfoContinue)
-		Self.InfoNoPB.clicked.connect(Self.DialogInfoNo)
-		Self.InfoExitPB.clicked.connect(Self.DialogInfoExit)
-
 	# Adjusts window size and moves window to the center
 	def AdjustWindowSize(Self):
 		# Center window
@@ -401,10 +320,62 @@ class MainWindow(QWidget):
 		Rectangle.moveCenter(CenterPoint)
 		Self.move(Rectangle.topLeft())
 
+	# Window actions
+	def CreateActions(Self):
+		# Actions of global buttons
+		Self.BottomBar.CancelPB.clicked.connect(Self.close)
+		Self.BottomBar.OkPB.clicked.connect(Self.StartTimer)
+		Self.InfoD.ContinuePB.clicked.connect(Self.aInfoContinueClicked)
+		Self.InfoD.NoPB.clicked.connect(Self.aInfoNoClicked)
+		Self.InfoD.ExitPB.clicked.connect(Self.aInfoExitClicked)
+
+		# Actions of form widgets
+		Self.TranslatorCB.currentTextChanged.connect(Self.aTranslatorTextChanged)
+		Self.ApiKeyLE.textChanged.connect(Self.aApiKeyTextChanged)
+		Self.SourceLangCB.currentIndexChanged.connect(Self.CheckLanguages)
+		Self.TargetLangCB.currentIndexChanged.connect(Self.CheckLanguages)
+		Self.TranslatingT.timeout.connect(Self.aGuiAccepted)
+
 	# Start timer
 	def StartTimer(Self):
-		Self.BottomBar.OkPB.setText("Translating...")
-		Self.TranslatingT.start(100)
+		# Get GUI data
+		Translator = Self.TranslatorCB.currentText()
+		ApiKey = Self.ApiKeyLE.text()
+		SourceLanguage = Self.SourceLangCB.currentText()
+		TargetLanguage = Self.TargetLangCB.currentText()
+		TmxFilePath = Self.TmxCB.currentText()
+
+		# API key is empty
+		if (ApiKey == "") and TRANSLATORS_API_KEY[Translator]:
+			Self.ApiKeyLE.setStyleSheet("background:#661111;")
+		# Source and target languages must be different
+		elif SourceLanguage == TargetLanguage:
+			Self.SourceLangCB.setStyleSheet("background:#661111;")
+			Self.TargetLangCB.setStyleSheet("background:#661111;")
+		# TMX file path must be specified
+		elif TmxFilePath == "":
+			Self.TmxCB.setStyleSheet("background:#661111;")
+		else:
+			Self.BottomBar.OkPB.setText("Translating...")
+			Self.TranslatingT.start(100)
+
+	# Close dialog info and continue in translating
+	def aInfoContinueClicked(Self):
+		if Self.InfoD.ContinuePB.text() == "Yes":
+			Self.StartTimer()
+
+		Self.InfoD.close()
+
+	# Close dialog info and continue in translating
+	def aInfoNoClicked(Self):
+		Self.InfoD.NoPB.setVisible(False)
+		Self.InfoD.ContinuePB.setText("Continue")
+		Self.InfoD.close()
+
+	# Close dialog info and also main dialog
+	def aInfoExitClicked(Self):
+		Self.InfoD.close()
+		Self.close()
 
 	# Translator changed
 	def aTranslatorTextChanged(Self):
@@ -449,53 +420,42 @@ class MainWindow(QWidget):
 		TargetLanguage = Self.TargetLangCB.currentText()
 		TmxFilePath = Self.TmxCB.currentText()
 
-		# API key is empty
-		if (ApiKey == "") and TRANSLATORS_API_KEY[Translator]:
-			Self.ApiKeyLE.setStyleSheet("background:#661111;")
-		# Source and target languages must be different
-		elif SourceLanguage == TargetLanguage:
-			Self.SourceLangCB.setStyleSheet("background:#661111;")
-			Self.TargetLangCB.setStyleSheet("background:#661111;")
-		# TMX file path must be specified
-		elif TmxFilePath == "":
-			Self.TmxCB.setStyleSheet("background:#661111;")
-		else:
-			if DEBUG: print("\n" + SourceLanguage + " -> " + TargetLanguage)
+		if DEBUG: print("\n" + SourceLanguage + " -> " + TargetLanguage)
 
-			# Parse selected tmx
-			TmxTree = et.parse(os.path.join(LogicalPath, TmxFilePath))
+		# Parse selected tmx
+		TmxTree = et.parse(os.path.join(LogicalPath, TmxFilePath))
 
-			# Get texts from file
-			TmxTexts = getTextListFromDoc(TmxTree)
+		# Get texts from file
+		TmxTexts = getTextListFromDoc(TmxTree)
 
-			# Get unique list of texts to translate
-			SourceLangList = Self.GetTexts(TmxTexts, SourceLanguage, TargetLanguage)
+		# Get unique list of texts to translate
+		SourceLangList = Self.GetTexts(TmxTexts, SourceLanguage, TargetLanguage)
 
-			# Translate texts with selected translator
-			TargetLangList = Self.TranslateTexts(Translator, ApiKey, ApiFree, SourceLanguage, TargetLanguage, SourceLangList)
-			
-			# Add translated texts to the file
-			Self.AppendTexts(TmxTree, SourceLanguage, TargetLanguage, SourceLangList, TargetLangList, TmxFilePath)
+		# Translate texts with selected translator
+		TargetLangList = Self.TranslateTexts(Translator, ApiKey, ApiFree, SourceLanguage, TargetLanguage, SourceLangList)
+		
+		# Add translated texts to the file
+		Self.AppendTexts(TmxTree, SourceLanguage, TargetLanguage, SourceLangList, TargetLangList, TmxFilePath)
 
-			# Store user data
-			UserData["Translator"] = Translator
-			if Translator == TRANSLATORS[1]:
-				UserData["APIDeepL"] = ApiKey
-			elif Translator == TRANSLATORS[4]:
-				UserData["APIYandex"] = ApiKey
-			UserData["DeepLFree"] = ApiFree
-			UserData["TmxFile"] = TmxFilePath
-			UserData["SourceLanguage"] = SourceLanguage
-			UserData["TargetLanguage"] = TargetLanguage
-			
-			with open(UserDataPath, "wb") as TranslateTmxSettings:
-				pickle.dump(UserData, TranslateTmxSettings)
+		# Store user data
+		UserData["Translator"] = Translator
+		if Translator == TRANSLATORS[1]:
+			UserData["APIDeepL"] = ApiKey
+		elif Translator == TRANSLATORS[4]:
+			UserData["APIYandex"] = ApiKey
+		UserData["DeepLFree"] = ApiFree
+		UserData["TmxFile"] = TmxFilePath
+		UserData["SourceLanguage"] = SourceLanguage
+		UserData["TargetLanguage"] = TargetLanguage
+		
+		with open(UserDataPath, "wb") as TranslateTmxSettings:
+			pickle.dump(UserData, TranslateTmxSettings)
 
-			# Set text of Translate button back
-			Self.BottomBar.OkPB.setText("Translate")
+		# Set text of Translate button back
+		Self.BottomBar.OkPB.setText("Translate")
 
-			# Show info dialog
-			Self.InfoD.show()
+		# Show info dialog
+		Self.InfoD.show()
 
 	# Get unique list of texts to translate
 	def GetTexts(Self, TmxTexts, SourceLanguage, TargetLanguage):
@@ -514,14 +474,14 @@ class MainWindow(QWidget):
 		TargetLangList = []
 		StartTime = time.time()
 		global NewLanguage
-		if Self.InfoContinuePB.text() == "Yes":
-			Self.InfoContinuePB.setText("Continue")
-			Self.InfoNoPB.setVisible(False)
+		if Self.InfoD.ContinuePB.text() == "Yes":
+			Self.InfoD.ContinuePB.setText("Continue")
+			Self.InfoD.NoPB.setVisible(False)
 			TargetLanguage = NewLanguage
 		if SourceLangList != []:
 			try:
 				# Set positive label status
-				Self.InfoL.setText("Clear")
+				Self.InfoD.MessageL.setText("Clear")
 
 				# Google
 				if Translator == TRANSLATORS[0]:
@@ -545,41 +505,41 @@ class MainWindow(QWidget):
 					if "-" in Language:
 						NewLanguage = Language[:Language.find("-")]
 						if SourceLanguage != NewLanguage:
-							Self.InfoContinuePB.setText("Yes")
-							Self.InfoNoPB.setVisible(True)
-							Self.InfoL.setText("Language <span style='color:#aa0000;font-weight:bold;'>" + Language + "</span> is not supported.<br/>Do you want to use <span style='color:#eedd22;font-weight:bold;'>" + NewLanguage + "</span> language instead?")
+							Self.InfoD.ContinuePB.setText("Yes")
+							Self.InfoD.NoPB.setVisible(True)
+							Self.InfoD.MessageL.setText("Language <span style='color:#aa0000;font-weight:bold;'>" + Language + "</span> is not supported.<br/>Do you want to use <span style='color:#eedd22;font-weight:bold;'>" + NewLanguage + "</span> language instead?")
 						else:
-							Self.InfoL.setText("Language <span style='color:#aa0000;font-weight:bold;'>" + Language + "</span> is not supported.<br/>I would offer you to use <span style='color:#eedd22;font-weight:bold;'>" + NewLanguage + "</span> language, but it is the source language.")
+							Self.InfoD.MessageL.setText("Language <span style='color:#aa0000;font-weight:bold;'>" + Language + "</span> is not supported.<br/>I would offer you to use <span style='color:#eedd22;font-weight:bold;'>" + NewLanguage + "</span> language, but it is the source language.")
 					else:
-						Self.InfoL.setText("Language <span style='color:#aa0000;font-weight:bold;'>" + Language + "</span> is not supported.")
+						Self.InfoD.MessageL.setText("Language <span style='color:#aa0000;font-weight:bold;'>" + Language + "</span> is not supported.")
 				else:
-					Self.InfoL.setText(str(Exception))
+					Self.InfoD.MessageL.setText(str(Exception))
 
 			except requests.exceptions.ConnectionError:
-				Self.InfoL.setText("Connection error")
+				Self.InfoD.MessageL.setText("Connection error")
 
 			except exceptions.AuthorizationException:
-				Self.InfoL.setText("Bad API key")
+				Self.InfoD.MessageL.setText("Bad API key")
 
 			except exceptions.ServerException:
-				Self.InfoL.setText("No or bad API key")
+				Self.InfoD.MessageL.setText("No or bad API key")
 
 			except exceptions.TooManyRequests as Exception:
-				Self.InfoL.setText("You have reached the translation limit of this translator for this day")
+				Self.InfoD.MessageL.setText("You have reached the translation limit of this translator for this day")
 				
 			except:
-				Self.InfoL.setText("Translator error")
+				Self.InfoD.MessageL.setText("Translator error")
 			
 			DebugPrint("Output", TargetLangList)
 		else:
-			Self.InfoL.setText("No texts to translate")
+			Self.InfoD.MessageL.setText("No texts to translate")
 		
 		# Caculate time of translation
 		EndTime = time.time()
-		if Self.InfoL.text() == "Clear":
+		if Self.InfoD.MessageL.text() == "Clear":
 			TotalTime = str(EndTime - StartTime)
 			TotalTime = TotalTime[:TotalTime.find(".") + 2]
-			Self.InfoL.setText("Texts have been translated\nTotal time: " + TotalTime + " s")
+			Self.InfoD.MessageL.setText("Texts have been translated\nTotal time: " + TotalTime + " s")
 
 		return TargetLangList
 
@@ -606,24 +566,6 @@ class MainWindow(QWidget):
 									Tu.insert(0,TuvNew)
 
 			TmxTree.write(os.path.join(LogicalPath, TmxFilePath))
-
-	# Close dialog info and continue in translating
-	def DialogInfoContinue(Self):
-		if Self.InfoContinuePB.text() == "Yes":
-			Self.StartTimer()
-
-		Self.InfoD.close()
-
-	# Close dialog info and continue in translating
-	def DialogInfoNo(Self):
-		Self.InfoNoPB.setVisible(False)
-		Self.InfoContinuePB.setText("Continue")
-		Self.InfoD.close()
-
-	# Close dialog info and also main dialog
-	def DialogInfoExit(Self):
-		Self.InfoD.close()
-		Self.close()
 
 	# State of the window changed
 	def changeEvent(Self, Event: QEvent):
@@ -789,11 +731,115 @@ class BottomBar(QWidget):
 		- Basic functions implemented""")
 		BottomBarHBL.addWidget(VersionL, 0, Qt.AlignLeft)
 
-		Self.OkPB = QPushButton("OK")
+		Self.OkPB = QPushButton("Translate")
 		BottomBarHBL.addWidget(Self.OkPB, 10, Qt.AlignRight)
 		Self.CancelPB = QPushButton("Cancel")
 		BottomBarHBL.addSpacing(10)
 		BottomBarHBL.addWidget(Self.CancelPB, 0, Qt.AlignRight)
+
+# Dialog for displaying info messages
+class InfoDialog(QDialog):
+	# Initialization of the dialog
+	def __init__(Self):
+		super(InfoDialog, Self).__init__()
+		Self.setWindowFlag(Qt.FramelessWindowHint)
+		Self.resize(300, 140)
+		Self.setModal(True)
+		Self.setStyleSheet("""
+			QWidget{
+				background-color:qlineargradient(spread:pad, x1:1, y1:0, x2:1, y2:1, stop:0 rgba(0, 0, 0, 255), stop:1 rgba(20, 20, 20, 255));
+				color:#cccccc;
+				font: 24px \"Bahnschrift SemiLight SemiConde\";
+			}
+
+			QDialog{
+				border: 2px solid gray;
+			}
+
+			QLabel{
+				background-color:transparent;
+				color:#888888;
+				qproperty-alignment: \'AlignVCenter | AlignCenter\';
+			}
+
+			QPushButton{
+				background-color: #222222;
+				width: 180px;
+				height: 50px;
+				border-style:solid;
+				color:#cccccc;
+				border-radius:8px;
+			}
+
+			QPushButton:hover{
+				color:#cccccc;
+				background-color: qlineargradient(spread:pad, x1:0.517, y1:0, x2:0.517, y2:1, stop:0 rgba(55, 55, 55, 255), stop:0.505682 rgba(55, 55, 55, 255), stop:1 rgba(40, 40, 40, 255));
+			}
+
+			QPushButton:pressed{
+				background-color: qlineargradient(spread:pad, x1:0.517, y1:0, x2:0.517, y2:1, stop:0 rgba(45, 45, 45, 255), stop:0.505682 rgba(40, 40, 40, 255), stop:1 rgba(45, 45, 45, 255));
+				color:#ffffff;
+			}
+			""")
+
+		MainVBL = QVBoxLayout(Self)
+
+		Self.MessageL = QLabel()
+		MainVBL.addWidget(Self.MessageL)
+		
+		ButtonBoxHBL = QHBoxLayout()
+		Self.ContinuePB = QPushButton()
+		Self.ContinuePB.setText("Continue")
+		ButtonBoxHBL.addWidget(Self.ContinuePB)
+
+		Self.NoPB = QPushButton()
+		Self.NoPB.setText("No")
+		Self.NoPB.setVisible(False)
+		ButtonBoxHBL.addWidget(Self.NoPB)
+
+		Self.ExitPB = QPushButton()
+		Self.ExitPB.setText("Exit")
+		ButtonBoxHBL.addWidget(Self.ExitPB)
+		
+		MainVBL.addLayout(ButtonBoxHBL)
+
+# Dialog for displaying error messages
+class ErrorDialog(QDialog):
+	# Initialization of the dialog
+	def __init__(Self, Messages):
+		super(ErrorDialog, Self).__init__()
+		Self.setStyleSheet("""
+			QWidget{
+				background-color:qlineargradient(spread:pad, x1:1, y1:0, x2:1, y2:1, stop:0 rgba(0, 0, 0, 255), stop:1 rgba(20, 20, 20, 255));
+				color:#cccccc;
+				font: 24px \"Bahnschrift SemiLight SemiConde\";
+			}
+			
+			QLabel{
+				background-color:transparent;
+				color:#bb2222;
+				padding: 5px;
+			}""")
+		Self.setWindowTitle("Error")
+		Self.setGeometry(0, 0, 100, 100)
+
+		# Create widgets
+		DialogVBL = QVBoxLayout(Self)
+
+		for Message in Messages:
+			ErrorL = QLabel(Message)
+			ErrorL.setOpenExternalLinks(True)
+			DialogVBL.addWidget(ErrorL)
+
+		# Adjust window size and position
+		Self.adjustSize()
+		Rectangle = Self.frameGeometry()
+		CenterPoint = QDesktopWidget().availableGeometry().center()
+		Rectangle.moveCenter(CenterPoint)
+		Self.move(Rectangle.topLeft())
+	
+		# Show dialog
+		Self.show()
 
 #####################################################################################################################################################
 # Global functions
@@ -908,48 +954,6 @@ def getTextListFromDoc(document):
 
     return textDict 
 
-# Logical folder not found -> show error message
-def ErrorDialog(Message1, Message2 = "", Message3 = ""):
-	# Create Self.InfoD gui
-	Gui = QApplication([])
-	Dialog = QDialog()
-	Dialog.setStyleSheet("""
-		QWidget{
-			background-color:qlineargradient(spread:pad, x1:1, y1:0, x2:1, y2:1, stop:0 rgba(0, 0, 0, 255), stop:1 rgba(20, 20, 20, 255));
-			color:#cccccc;
-			font: 24px \"Bahnschrift SemiLight SemiConde\";
-		}
-		
-		QLabel{
-			background-color:transparent;
-			color:#bb2222;
-			padding: 5px;
-		}""")
-	Dialog.setWindowTitle("Error")
-	Dialog.setGeometry(0, 0, 600, 120)
-
-	# Center window
-	Rectangle = Dialog.frameGeometry()
-	CenterPoint = QDesktopWidget().availableGeometry().center()
-	Rectangle.moveCenter(CenterPoint)
-	Dialog.move(Rectangle.topLeft())
-
-	# Creating a group box
-	DialogVBL = QVBoxLayout(Dialog)
-	ErrorLabel1 = QLabel(Message1)
-	ErrorLabel1.setOpenExternalLinks(True)
-	DialogVBL.addWidget(ErrorLabel1)
-	ErrorLabel2 = QLabel(Message2)
-	ErrorLabel2.setOpenExternalLinks(True)
-	DialogVBL.addWidget(ErrorLabel2)
-	ErrorLabel3 = QLabel(Message3)
-	ErrorLabel3.setOpenExternalLinks(True)
-	DialogVBL.addWidget(ErrorLabel3)
-	
-	# Show Self.InfoD
-	Dialog.show()
-	Gui.exec()
-
 #####################################################################################################################################################
 # Main
 #####################################################################################################################################################
@@ -957,13 +961,15 @@ def ErrorDialog(Message1, Message2 = "", Message3 = ""):
 # Get project info
 ProjectName, ProjectPath, LogicalPath = GetProjectInfo()
 
-if ProjectName == "":
-	ErrorDialog("Directory Logical not found. Please copy this script to the LogicalView of your project.")
+# Create application
+Application = QApplication(sys.argv)
 
+if ProjectName == "":
+	Window = ErrorDialog(["Directory Logical not found. Please copy this script to the LogicalView of your project."])
 elif (ConnectionStatus == 1) or (ConnectionStatus == 3):
-	ErrorDialog("Unable to connect to the translate service.", "  - Verify your internet connection", "  - If you are in a corporate network, this feature may be blocked, use an external network")
+	Window = ErrorDialog(["Unable to connect to the translate service.", "  - Verify your internet connection", "  - If you are in a corporate network, this feature may be blocked, use an external network"])
 elif ConnectionStatus == 2:
-	ErrorDialog("Module deep_translator not found. Please use pip to install the module.", "<a style='color:yellow; text-decoration:none' href='https://pip.pypa.io/en/stable/cli/pip_install/'>How to use PIP</a>", "<a style='color:yellow; text-decoration:none' href='https://pypi.org/project/deep-translator/#installation'>Installation of deep_translator</a>")
+	Window = ErrorDialog(["Module deep_translator not found. Please use pip to install the module.", "<a style='color:yellow; text-decoration:none' href='https://pip.pypa.io/en/stable/cli/pip_install/'>How to use PIP</a>", "<a style='color:yellow; text-decoration:none' href='https://pypi.org/project/deep-translator/#installation'>Installation of deep_translator</a>"])
 else:
 	# Get project languages
 	Languages = GetProjectLanguages()
@@ -990,6 +996,6 @@ else:
 
 	DebugPrint("UserData", UserData)
 
-	Application = QApplication(sys.argv)
 	Window = MainWindow()
-	sys.exit(Application.exec())
+	
+sys.exit(Application.exec())
