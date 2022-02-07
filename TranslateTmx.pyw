@@ -43,7 +43,7 @@ TRANSLATORS = ["Google Translator", "DeepL Translator", "Linguee Translator", "M
 TRANSLATORS_API_KEY = {"Google Translator": False, "DeepL Translator": True, "Linguee Translator": False, "MyMemory Translator": False, "Yandex Translator": True}
 TRANSLATORS_LINK = {"Google Translator": "", "DeepL Translator": "https://www.deepl.com/pro-api?cta=header-pro-api/", "Linguee Translator": "", "MyMemory Translator": "", "Yandex Translator": "https://yandex.com/dev/translate/"}
 
-NewLanguage = ""
+NewLanguage = {"Source": "", "Target": ""}
 
 #####################################################################################################################################################
 # Class definitions
@@ -409,8 +409,6 @@ class MainWindow(QWidget):
 		TargetLanguage = Self.TargetLangCB.currentText()
 		TmxFilePath = Self.TmxCB.currentText()
 
-		if DEBUG: print("\n" + SourceLanguage + " -> " + TargetLanguage)
-
 		# Parse selected tmx
 		TmxTree = et.parse(os.path.join(LogicalPath, TmxFilePath))
 
@@ -466,11 +464,14 @@ class MainWindow(QWidget):
 		if Self.InfoD.ContinuePB.text() == "Yes":
 			Self.InfoD.ContinuePB.setText("Continue")
 			Self.InfoD.NoPB.setVisible(False)
-			TargetLanguage = NewLanguage
+			SourceLanguage = NewLanguage["Source"]
+			TargetLanguage = NewLanguage["Target"]
 		if SourceLangList != []:
 			try:
 				# Set positive label status
 				Self.InfoD.MessageL.setText("Clear")
+				
+				if DEBUG: print("\n" + SourceLanguage + " -> " + TargetLanguage)
 
 				# Google
 				if Translator == TRANSLATORS[0]:
@@ -492,13 +493,20 @@ class MainWindow(QWidget):
 				if str(Exception).find("-->") != -1:
 					Language = str(Exception)[:str(Exception).find("-->") - 1]
 					if "-" in Language:
-						NewLanguage = Language[:Language.find("-")]
-						if SourceLanguage != NewLanguage:
+						if Language.lower() == TargetLanguage.lower():
+							NewLanguage["Source"] = SourceLanguage
+							NewLanguage["Target"] = Language[:Language.find("-")]
+							ReplaceLanguage = "Target"
+						else:
+							NewLanguage["Source"] = Language[:Language.find("-")]
+							NewLanguage["Target"] = TargetLanguage
+							ReplaceLanguage = "Source"
+						if NewLanguage["Source"] != NewLanguage["Target"]:
 							Self.InfoD.ContinuePB.setText("Yes")
 							Self.InfoD.NoPB.setVisible(True)
-							Self.InfoD.MessageL.setText("Language <span style='color:#aa0000;font-weight:bold;'>" + Language + "</span> is not supported.<br/>Do you want to use <span style='color:#eedd22;font-weight:bold;'>" + NewLanguage + "</span> language instead?")
+							Self.InfoD.MessageL.setText("Language <span style='color:#aa0000;font-weight:bold;'>" + Language + "</span> is not supported.<br/>Do you want to use <span style='color:#eedd22;font-weight:bold;'>" + NewLanguage[ReplaceLanguage] + "</span> language instead?")
 						else:
-							Self.InfoD.MessageL.setText("Language <span style='color:#aa0000;font-weight:bold;'>" + Language + "</span> is not supported.<br/>I would offer you to use <span style='color:#eedd22;font-weight:bold;'>" + NewLanguage + "</span> language, but it is the source language.")
+							Self.InfoD.MessageL.setText("Language <span style='color:#aa0000;font-weight:bold;'>" + Language + "</span> is not supported.<br/>I would offer you to use <span style='color:#eedd22;font-weight:bold;'>" + NewLanguage[ReplaceLanguage] + "</span> language, but it is the source language.")
 					else:
 						Self.InfoD.MessageL.setText("Language <span style='color:#aa0000;font-weight:bold;'>" + Language + "</span> is not supported by the selected translator.")
 				else:
