@@ -34,9 +34,11 @@ DEBUG = False
 
 # Window style
 WINDOW_COLOR_STYLE = "#4a2c0d"
-WIDGETS_DEFAULT_HEIGHT = "50px"
-FONT_DEFAULT_SIZE = "24px"
+DEFAULT_GUI_SIZE = {"TitleFontSize": 30, "FontSize": 24, "TooltipFontSize": 16, "WidgetHeight": 50, "ButtonWidth": 180}
+gSizeRatio = 1
+gAdjustedGuiSize = {}
 
+# Application
 TRANSLATORS = ["Google Translator", "DeepL Translator", "Linguee Translator", "MyMemory Translator", "Yandex Translator"]
 TRANSLATORS_API_KEY = {"Google Translator": False, "DeepL Translator": True, "Linguee Translator": False, "MyMemory Translator": False, "Yandex Translator": True}
 TRANSLATORS_LINK = {"Google Translator": "", "DeepL Translator": "https://www.deepl.com/pro-api?cta=header-pro-api/", "Linguee Translator": "", "MyMemory Translator": "", "Yandex Translator": "https://yandex.com/dev/translate/"}
@@ -67,7 +69,7 @@ class MainWindow(QWidget):
 		Self.setWindowTitle(WINDOW_TITLE)
 
 		# Create title bar
-		Self.TitleBar = TitleBar(Self)
+		Self.TitleBar = TitleBar(Self, WINDOW_TITLE, WINDOW_COLOR_STYLE, True, True, True)
 		Self.setContentsMargins(0, Self.TitleBar.height(), 0, 0)
 
 		# Create bottom button bar
@@ -85,7 +87,7 @@ class MainWindow(QWidget):
 		QWidget {
 			background-color: qlineargradient(spread:pad, x1:1, y1:0, x2:1, y2:1, stop:0 #000000, stop:1 #141414);
 			color: #cccccc;
-			font: ReplaceFont \"Bahnschrift SemiLight SemiConde\";
+			font: ReplaceFontSizepx \"Bahnschrift SemiLight SemiConde\";
 		}
 
 		QGroupBox {
@@ -96,7 +98,7 @@ class MainWindow(QWidget):
 		QToolTip {
 			background-color: #eedd22;
 			color: #111111;
-			font: 16px \"Bahnschrift SemiLight SemiConde\";
+			font: ReplaceTooltipFontSizepx \"Bahnschrift SemiLight SemiConde\";
 			border: solid black 1px;
 		}
 
@@ -110,7 +112,7 @@ class MainWindow(QWidget):
 			color: #cccccc;
 			border-radius: 8px;
 			padding-left: 10px;
-			height: ReplaceHeight;
+			height: ReplaceWidgetHeightpx;
 		}
 
 		QLineEdit:hover {
@@ -121,8 +123,8 @@ class MainWindow(QWidget):
 		QPushButton {
 			background-color: #3d3d3d;
 			color: #cccccc;
-			width: 180px;
-			height: ReplaceHeight;
+			width: ReplaceButtonWidthpx;
+			height: ReplaceWidgetHeightpx;
 			border-style: solid;
 			border-radius: 8px;
 		}
@@ -158,8 +160,8 @@ class MainWindow(QWidget):
 		QCheckBox::indicator {
 			background-color: #3d3d3d;
 			top: 2px;
-			width: ReplaceHeight;
-			height: ReplaceHeight;
+			width: ReplaceWidgetHeightpx;
+			height: ReplaceWidgetHeightpx;
 			border-radius: 8px;
 			margin-bottom: 4px;
 		}
@@ -187,7 +189,7 @@ class MainWindow(QWidget):
 		QComboBox {
 			background-color: #3d3d3d;
 			color: #cccccc;
-			height: ReplaceHeight;
+			height: ReplaceWidgetHeightpx;
 			border: none;
 			border-radius: 8px;
 			padding-left: 10px;
@@ -210,10 +212,7 @@ class MainWindow(QWidget):
 			color: #cccccc;
 		}
 		"""
-		Style = Style.replace("ReplaceColor", WINDOW_COLOR_STYLE)
-		Style = Style.replace("ReplaceHeight", WIDGETS_DEFAULT_HEIGHT)
-		Style = Style.replace("ReplaceFont", FONT_DEFAULT_SIZE)
-		Self.setStyleSheet(Style)
+		Self.setStyleSheet(FinishStyle(Style))
 
 		# Create main group box
 		Self.MainGB = QGroupBox(Self)
@@ -416,7 +415,7 @@ class MainWindow(QWidget):
 		TmxTree = et.parse(os.path.join(LogicalPath, TmxFilePath))
 
 		# Get texts from file
-		TmxTexts = getTextListFromDoc(TmxTree)
+		TmxTexts = GetTextListFromDoc(TmxTree)
 
 		# Get unique list of texts to translate
 		SourceLangList = Self.GetTexts(TmxTexts, SourceLanguage, TargetLanguage)
@@ -501,35 +500,35 @@ class MainWindow(QWidget):
 						else:
 							Self.InfoD.MessageL.setText("Language <span style='color:#aa0000;font-weight:bold;'>" + Language + "</span> is not supported.<br/>I would offer you to use <span style='color:#eedd22;font-weight:bold;'>" + NewLanguage + "</span> language, but it is the source language.")
 					else:
-						Self.InfoD.MessageL.setText("Language <span style='color:#aa0000;font-weight:bold;'>" + Language + "</span> is not supported.")
+						Self.InfoD.MessageL.setText("Language <span style='color:#aa0000;font-weight:bold;'>" + Language + "</span> is not supported by the selected translator.")
 				else:
 					Self.InfoD.MessageL.setText(str(Exception))
 
 			except requests.exceptions.ConnectionError:
-				Self.InfoD.MessageL.setText("Connection error")
+				Self.InfoD.MessageL.setText("Connection error.")
 
 			except exceptions.AuthorizationException:
-				Self.InfoD.MessageL.setText("Bad API key")
+				Self.InfoD.MessageL.setText("Bad API key.")
 
 			except exceptions.ServerException:
-				Self.InfoD.MessageL.setText("No or bad API key")
+				Self.InfoD.MessageL.setText("No or bad API key.")
 
 			except exceptions.TooManyRequests as Exception:
-				Self.InfoD.MessageL.setText("You have reached the translation limit of this translator for this day")
+				Self.InfoD.MessageL.setText("You have reached the translation limit of this translator for this day.")
 				
 			except:
-				Self.InfoD.MessageL.setText("Translator error")
+				Self.InfoD.MessageL.setText("Translator error.")
 			
 			DebugPrint("Output", TargetLangList)
 		else:
-			Self.InfoD.MessageL.setText("No texts to translate")
+			Self.InfoD.MessageL.setText("No texts to translate.")
 		
 		# Caculate time of translation
 		EndTime = time.time()
 		if Self.InfoD.MessageL.text() == "Clear":
 			TotalTime = str(EndTime - StartTime)
 			TotalTime = TotalTime[:TotalTime.find(".") + 2]
-			Self.InfoD.MessageL.setText("Texts have been translated\nTotal time: " + TotalTime + " s")
+			Self.InfoD.MessageL.setText("Texts have been translated.\nTotal time: " + TotalTime + " s")
 
 		return TargetLangList
 
@@ -572,21 +571,23 @@ class TitleBar(QWidget):
 	ClickPosition = None
 
 	# Initialization of the title bar
-	def __init__(Self, Parent):
+	def __init__(Self, Parent, WindowTitle, TitleColor, UseMinButton, UseMaxButton, UseCloseButton):
 		super(TitleBar, Self).__init__(Parent)
 
 		# Title bar layout
 		Layout = QHBoxLayout(Self)
-		Layout.setContentsMargins(8, 8, 8, 8)
+		Layout.setContentsMargins(int(8 * gSizeRatio), int(8 * gSizeRatio),int(8 * gSizeRatio),int(8 * gSizeRatio))
 		Layout.addStretch()
 
 		# Label title
-		Self.Title = QLabel(WINDOW_TITLE, Self, alignment = Qt.AlignCenter)
-		Self.Title.setStyleSheet("background-color: ReplaceColor; color: #cccccc; font: 30px \"Bahnschrift SemiLight SemiConde\"; padding-top: 4px;".replace("ReplaceColor", WINDOW_COLOR_STYLE))
+		Self.Title = QLabel(WindowTitle, Self, alignment = Qt.AlignCenter)
+		Style = "background-color: ReplaceColor; color: #cccccc; font: ReplaceTitleFontSizepx \"Bahnschrift SemiLight SemiConde\"; padding-top: 4px;".replace("ReplaceColor", TitleColor)
+		Self.Title.setStyleSheet(FinishStyle(Style))
+		Self.Title.adjustSize()
 
 		# Appearance definition
 		Style = Self.style()
-		Self.ReferenceSize = Self.fontMetrics().height() + 4
+		Self.ReferenceSize = Self.Title.height() - int(18 * gSizeRatio)
 		Self.ReferenceSize += Style.pixelMetric(Style.PM_ButtonMargin) * 2
 		Self.setMaximumHeight(Self.ReferenceSize + 2)
 		Self.setMinimumHeight(Self.Title.height() + 12)
@@ -617,6 +618,10 @@ class TitleBar(QWidget):
 			setattr(Self, Target + "Button", Button)
 
 		Self.normalButton.hide()
+
+		if not(UseMinButton): Self.minButton.hide()
+		if not(UseMaxButton): Self.maxButton.hide()
+		if not(UseCloseButton): Self.closeButton.hide()
 
 	# State of the window changed
 	def windowStateChanged(Self, State):
@@ -655,7 +660,7 @@ class TitleBar(QWidget):
 
 	# Size of the window changed
 	def resizeEvent(Self, Event: QEvent):
-		Self.Title.resize(Self.minButton.x() + Self.ReferenceSize * 3 + 20, Self.height())
+		Self.Title.resize(Self.minButton.x() + Self.ReferenceSize * 3 + int(40 * gSizeRatio), Self.height())
 
 # Window bottom button bar
 class BottomBar(QWidget):
@@ -665,7 +670,7 @@ class BottomBar(QWidget):
 
 		# Create bottom button box bar group box
 		Self.BottomBarGB = QGroupBox()
-		Self.BottomBarGB.setMaximumHeight(100)
+		Self.BottomBarGB.setMaximumHeight(int(gAdjustedGuiSize["WidgetHeight"]) * 2)
 		Style = """
 		QGroupBox{
 			background-color: transparent;
@@ -681,15 +686,15 @@ class BottomBar(QWidget):
 		}
 
 		QLabel {
-			font: ReplaceFont \"Bahnschrift SemiLight SemiConde\";
+			font: ReplaceFontSizepx \"Bahnschrift SemiLight SemiConde\";
 			background-color: transparent;
 		}
 
 		QPushButton{
 			background-color: #222222;
 			color: #cccccc;
-			width: 150px;
-			height: ReplaceHeight;
+			width: ReplaceButtonWidthpx;
+			height: ReplaceWidgetHeightpx;
 			border-style: solid;
 			border-radius: 8px;
 		}
@@ -704,9 +709,7 @@ class BottomBar(QWidget):
 			color: #ffffff;
 		}
 		"""
-		Style = Style.replace("ReplaceHeight", WIDGETS_DEFAULT_HEIGHT)
-		Style = Style.replace("ReplaceFont", FONT_DEFAULT_SIZE)
-		Self.BottomBarGB.setStyleSheet(Style)
+		Self.BottomBarGB.setStyleSheet(FinishStyle(Style))
 
 		# Add buttons OK and Cancel to bottom bar
 		BottomBarHBL = QHBoxLayout(Self.BottomBarGB)
@@ -715,7 +718,7 @@ class BottomBar(QWidget):
 		VersionL = QLabel("ⓘ " + SCRIPT_VERSION)
 		VersionL.setToolTip("""To get more information about each row, hold the pointer on its label.
 		\nSupport contacts
-		michal.vavrik@br-automation.com
+		FirstName.LastName@br-automation.com
 		\nVersion 1.0.0
 		- Script creation
 		- Basic functions implemented""")
@@ -732,19 +735,21 @@ class InfoDialog(QDialog):
 	# Initialization of the dialog
 	def __init__(Self):
 		super(InfoDialog, Self).__init__()
-		Self.setWindowFlag(Qt.FramelessWindowHint)
-		Self.resize(300, 140)
-		Self.setModal(True)
-		Self.setWindowTitle("Info")
-		Self.setStyleSheet("""
+
+		# Create title bar
+		Self.TitleBar = TitleBar(Self, "Info", WINDOW_COLOR_STYLE, False, False, False)
+		Self.setContentsMargins(0, Self.TitleBar.height(), 0, 0)
+
+		# Set dialog styles
+		Style = """
 			QWidget{
 				background-color:qlineargradient(spread:pad, x1:1, y1:0, x2:1, y2:1, stop:0 rgba(0, 0, 0, 255), stop:1 rgba(20, 20, 20, 255));
 				color:#cccccc;
-				font: 24px \"Bahnschrift SemiLight SemiConde\";
+				font: ReplaceFontSizepx \"Bahnschrift SemiLight SemiConde\";
 			}
 
 			QDialog{
-				border: 2px solid gray;
+				border: 2px solid ReplaceColor;
 			}
 
 			QLabel{
@@ -756,8 +761,8 @@ class InfoDialog(QDialog):
 
 			QPushButton{
 				background-color: #222222;
-				width: 180px;
-				height: 50px;
+				width: ReplaceButtonWidthpx;
+				height: ReplaceWidgetHeightpx;
 				border-style:solid;
 				color:#cccccc;
 				border-radius:8px;
@@ -772,8 +777,16 @@ class InfoDialog(QDialog):
 				background-color: qlineargradient(spread:pad, x1:0.517, y1:0, x2:0.517, y2:1, stop:0 rgba(45, 45, 45, 255), stop:0.505682 rgba(40, 40, 40, 255), stop:1 rgba(45, 45, 45, 255));
 				color:#ffffff;
 			}
-			""")
+			"""
+		Self.setStyleSheet(FinishStyle(Style))
 
+		# Set general dialog settings
+		Self.setWindowTitle("Info")
+		Self.setWindowFlag(Qt.FramelessWindowHint)
+		Self.setGeometry(0, 0, 100, 100)
+		Self.setModal(True)
+
+		# Create widgets
 		MainVBL = QVBoxLayout(Self)
 
 		Self.MessageL = QLabel()
@@ -795,24 +808,44 @@ class InfoDialog(QDialog):
 		
 		MainVBL.addLayout(ButtonBoxHBL)
 
+	# Size of the window changed
+	def resizeEvent(Self, Event: QEvent):
+		Self.TitleBar.resize(Self.width(), Self.TitleBar.height())
+		Self.TitleBar.Title.setMinimumWidth(Self.width())
+
 # Dialog for displaying error messages
 class ErrorDialog(QDialog):
 	# Initialization of the dialog
 	def __init__(Self, Messages):
 		super(ErrorDialog, Self).__init__()
-		Self.setStyleSheet("""
+
+		# Create title bar
+		Self.TitleBar = TitleBar(Self, "Error", "#6e1010", False, False, True)
+		Self.setContentsMargins(0, Self.TitleBar.height(), 0, 0)
+
+		# Set dialog styles
+		Style = """
 			QWidget{
 				background-color:qlineargradient(spread:pad, x1:1, y1:0, x2:1, y2:1, stop:0 rgba(0, 0, 0, 255), stop:1 rgba(20, 20, 20, 255));
 				color:#cccccc;
-				font: 24px \"Bahnschrift SemiLight SemiConde\";
+				font: ReplaceFontSizepx \"Bahnschrift SemiLight SemiConde\";
 			}
-			
+
+			QDialog{
+				border: 2px solid #6e1010;
+			}
+
 			QLabel{
 				background-color:transparent;
-				color:#bb2222;
+				color:#888888;
 				padding: 5px;
-			}""")
+			}
+			"""
+		Self.setStyleSheet(FinishStyle(Style))
+
+		# Set general dialog settings
 		Self.setWindowTitle("Error")
+		Self.setWindowFlag(Qt.FramelessWindowHint)
 		Self.setGeometry(0, 0, 100, 100)
 
 		# Create widgets
@@ -825,6 +858,11 @@ class ErrorDialog(QDialog):
 	
 		# Show dialog
 		ShowAdjusted(Self)
+
+	# Size of the window changed
+	def resizeEvent(Self, Event: QEvent):
+		Self.TitleBar.resize(Self.width(), Self.TitleBar.height())
+		Self.TitleBar.Title.setMinimumWidth(Self.width())
 
 #####################################################################################################################################################
 # Global functions
@@ -839,6 +877,12 @@ def ShowAdjusted(Widget: QWidget):
 	Rectangle.moveCenter(CenterPoint)
 	Widget.move(Rectangle.topLeft())
 	Widget.show()
+
+def FinishStyle(Style: str):
+	Style = Style.replace("ReplaceColor", WINDOW_COLOR_STYLE)
+	for DefaultSizeElement in DEFAULT_GUI_SIZE:
+		Style = Style.replace("Replace" + DefaultSizeElement, gAdjustedGuiSize[DefaultSizeElement])
+	return Style
 
 # Debug printing
 def DebugPrint(Message, Data):
@@ -863,7 +907,7 @@ def FindFilePath(SourcePath, FileName, Terminate):
 			if EndLoop:
 				break
 	if (FilePath == "" or FilePath == []) and Terminate:
-		print("Error: File " + FileName + " does not exist.")
+		DebugPrint("Error: File does not exist", FileName)
 		sys.exit()
 	return FilePath
 
@@ -871,7 +915,7 @@ def FindFilePath(SourcePath, FileName, Terminate):
 def GetProjectInfo():
 	CurrentPath = os.path.dirname(os.path.abspath(__file__))
 	if (CurrentPath.find("Logical") == -1):
-		print("Error: Directory 'Logical' does not exist.")
+		DebugPrint("Error: Directory does not exist", "Logical")
 		ProjectName = ProjectPath = LogicalPath = ""
 	else:
 		# Get project path
@@ -917,38 +961,38 @@ def GetTmxPaths():
 	return TmxPaths, TmxCutPaths
 
 # Get tmx texts from file
-def getTextListFromDoc(document):
-    """Function is used to return whole text  list from TMX document.
+def GetTextListFromDoc(Document: et.ElementTree):
+	"""Function is used to return whole text  list from TMX document.
 
-    Args:
-        document (object): etree object
+	Args:
+		document (object): etree object
 
-    Returns:
-        dict: TMX content parsed into dictionary. [textName][langN] = text
-    """
-    root = document.getroot()
-    textDict = {}
+	Returns:
+		dict: TMX content parsed into dictionary. [textName][langN] = text
+	"""
+	Root = Document.getroot()
+	TextDict = {}
 
-    for tu in root.iter('tu'):
-        if 'tuid' in tu.attrib:
-            if not tu.attrib['tuid'] in textDict:
-                textDict[tu.attrib['tuid']] = {}
-                note = tu.find("note")
-                if note:
-                    textDict[tu.attrib['tuid']]["note"] = note.text 
-            for tuv in tu.iter('tuv'):
-                if 'xml:lang' in tuv.attrib:
-                    lang = tuv.attrib['xml:lang']
-                elif '{http://www.w3.org/XML/1998/namespace}lang' in tuv.attrib:
-                    lang = tuv.attrib["{http://www.w3.org/XML/1998/namespace}lang"]
-                else:
-                    print(f'Error: Cannot extract language language while getting list from document.')
-                    return {}
+	for Tu in Root.iter('tu'):
+		if 'tuid' in Tu.attrib:
+			if not Tu.attrib['tuid'] in TextDict:
+				TextDict[Tu.attrib['tuid']] = {}
+				Note = Tu.find("note")
+				if Note:
+					TextDict[Tu.attrib['tuid']]["note"] = Note.text 
+			for Tuv in Tu.iter('tuv'):
+				if 'xml:lang' in Tuv.attrib:
+					Lang = Tuv.attrib['xml:lang']
+				elif '{http://www.w3.org/XML/1998/namespace}lang' in Tuv.attrib:
+					Lang = Tuv.attrib["{http://www.w3.org/XML/1998/namespace}lang"]
+				else:
+					DebugPrint("Error: Cannot extract language while getting list from document.", "")
+					return {}
 
-                if not lang in textDict[tu.attrib['tuid']]:
-                    textDict[tu.attrib['tuid']][lang] = tuv.find("seg").text
+				if not Lang in TextDict[Tu.attrib['tuid']]:
+					TextDict[Tu.attrib['tuid']][Lang] = Tuv.find("seg").text
 
-    return textDict 
+	return TextDict
 
 #####################################################################################################################################################
 # Main
@@ -959,6 +1003,12 @@ ProjectName, ProjectPath, LogicalPath = GetProjectInfo()
 
 # Create application
 Application = QApplication(sys.argv)
+
+# Get size ratio (get the width of the screen and divide it by 1920, because that's the size for which this GUI was designed)
+gSizeRatio = Application.primaryScreen().availableGeometry().width() / 1920
+# Calculate adjusted sizes
+for DefaultSizeElement in DEFAULT_GUI_SIZE:
+	gAdjustedGuiSize[DefaultSizeElement] = str(DEFAULT_GUI_SIZE[DefaultSizeElement] * gSizeRatio)[:str(DEFAULT_GUI_SIZE[DefaultSizeElement] * gSizeRatio).find(".")]
 
 if ProjectName == "":
 	Window = ErrorDialog(["Directory Logical not found. Please copy this script to the LogicalView of your project."])
