@@ -541,7 +541,7 @@ class MainWindow(QWidget):
 		return TargetLangList
 
 	# Add translated texts to the file
-	def AppendTexts(Self, TmxTree, SourceLanguage, TargetLanguage, SourceLangList, TargetLangList, TmxFilePath):
+	def AppendTexts(Self, TmxTree: et.ElementTree, SourceLanguage, TargetLanguage, SourceLangList, TargetLangList, TmxFilePath):
 		if TargetLangList != []:
 			TmxRoot = TmxTree.getroot()
 			Body = TmxRoot.find(".//body")
@@ -562,7 +562,7 @@ class MainWindow(QWidget):
 									TuvNew.append(Seg)
 									Tu.insert(0,TuvNew)
 
-			TmxTree.write(os.path.join(LogicalPath, TmxFilePath))
+			TmxTree.write(os.path.join(LogicalPath, TmxFilePath),encoding="utf-8")
 
 	# State of the window changed
 	def changeEvent(Self, Event: QEvent):
