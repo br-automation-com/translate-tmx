@@ -16,7 +16,7 @@ from PyQt5.QtWidgets import *
 # Detect connection to Google translate
 ConnectionStatus = 0
 try:
-	from deep_translator import (GoogleTranslator, DeepL, LingueeTranslator, MyMemoryTranslator, YandexTranslator, exceptions)
+	from deep_translator import (GoogleTranslator, DeeplTranslator, LingueeTranslator, MyMemoryTranslator, YandexTranslator, exceptions)
 except requests.exceptions.ConnectionError:
 	ConnectionStatus = 1
 except ModuleNotFoundError:
@@ -29,7 +29,7 @@ except:
 #####################################################################################################################################################
 # General
 WINDOW_TITLE = "Translate TMX"
-SCRIPT_VERSION = "1.0.0"
+SCRIPT_VERSION = "1.0.1"
 DEBUG = False
 
 # Window style
@@ -478,7 +478,7 @@ class MainWindow(QWidget):
 					TargetLangList = GoogleTranslator(source = SourceLanguage, target = TargetLanguage).translate_batch(SourceLangList)
 				# DeepL
 				elif Translator == TRANSLATORS[1]:
-					TargetLangList = DeepL(api_key = ApiKey, source = SourceLanguage, target = TargetLanguage, use_free_api = ApiFree).translate_batch(SourceLangList)
+					TargetLangList = DeeplTranslator(api_key = ApiKey, source = SourceLanguage, target = TargetLanguage, use_free_api = ApiFree).translate_batch(SourceLangList)
 				# Linguee
 				elif Translator == TRANSLATORS[2]:
 					TargetLangList = LingueeTranslator(source = SourceLanguage, target = TargetLanguage).translate_words(SourceLangList)
@@ -513,7 +513,7 @@ class MainWindow(QWidget):
 					Self.InfoD.MessageL.setText(str(Exception))
 
 			except requests.exceptions.ConnectionError:
-				Self.InfoD.MessageL.setText("Connection error.")
+				Self.InfoD.MessageL.setText("Connection error.\n - Verify your internet connection\n - If you are in a corporate network, this feature may be blocked, use an external network")
 
 			except exceptions.AuthorizationException:
 				Self.InfoD.MessageL.setText("Bad API key.")
@@ -727,6 +727,8 @@ class BottomBar(QWidget):
 		VersionL.setToolTip("""To get more information about each row, hold the pointer on its label.
 		\nSupport contacts
 		FirstName.LastName@br-automation.com
+		\nVersion 1.0.1
+		- Adjustments for the new version of deep-translator library
 		\nVersion 1.0.0
 		- Script creation
 		- Basic functions implemented""")
