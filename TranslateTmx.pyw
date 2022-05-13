@@ -30,7 +30,7 @@ except:
 # General
 WINDOW_TITLE = "Translate TMX"
 SCRIPT_VERSION = "1.0.1"
-DEBUG = False
+DEBUG = True
 
 # Window style
 WINDOW_COLOR_STYLE = "#4a2c0d"
@@ -40,6 +40,13 @@ gAdjustedGuiSize = {}
 
 # Application
 TRANSLATORS = ["Google Translator", "DeepL Translator", "Linguee Translator", "MyMemory Translator", "Yandex Translator"]
+TRANSLATOR_PRIVACY = [
+	"I have read and agree to the terms and conditions of Google Translator (<a style='color:yellow; text-decoration:none' href='https://developers.google.com/terms#d_user_privacy_and_api_clients'>see link</a>).<br>B&R assumes no liability.",
+	"I have read and agree to the terms and conditions of DeepL Translator (<a style='color:yellow; text-decoration:none' href='https://www.deepl.com/en/privacy'>see link</a>).<br>B&R assumes no liability.",
+	"I have read and agree to the terms and conditions of Linguee Translator (<a style='color:yellow; text-decoration:none' href='https://www.linguee.com/english-czech/page/termsAndConditions.php'>see link</a>).<br>B&R assumes no liability.",
+	"I have read and agree to the terms and conditions of MyMemory Translator (<a style='color:yellow; text-decoration:none' href='https://mymemory.translated.net/doc/en/tos.php'>see link</a>).<br>B&R assumes no liability.",
+	"I have read and agree to the terms and conditions of Yandex Translator (<a style='color:yellow; text-decoration:none' href='https://yandex.com/legal/termsofservice/'>see link</a>).<br>B&R assumes no liability."
+]
 TRANSLATORS_API_KEY = {"Google Translator": False, "DeepL Translator": True, "Linguee Translator": False, "MyMemory Translator": False, "Yandex Translator": True}
 TRANSLATORS_LINK = {"Google Translator": "", "DeepL Translator": "https://www.deepl.com/pro-api?cta=header-pro-api/", "Linguee Translator": "", "MyMemory Translator": "", "Yandex Translator": "https://yandex.com/dev/translate/"}
 
@@ -265,18 +272,15 @@ class MainWindow(QWidget):
 		ApiKeyHBL.addWidget(Self.ApiLinkL)
 		Self.LayoutFL.addRow(Self.ApiKeyL, ApiKeyHBL)
 
-		# Init visibility of API key
-		Self.aTranslatorTextChanged()
-
 		# Tmx selection
 		Self.TmxCB = QComboBox()
 		Self.TmxCB.addItems(TmxCutPaths)
 		Self.TmxCB.setToolTip("Select tmx file to translate")
 		if (UserData["TmxFile"] != "") and (UserData["TmxFile"] in TmxCutPaths):
 			Self.TmxCB.setCurrentText(UserData["TmxFile"])
-		TmxL = QLabel("Tmx file")
-		TmxL.setToolTip("Select tmx file to translate")
-		Self.LayoutFL.addRow(TmxL, Self.TmxCB)
+		Self.TmxL = QLabel("Tmx file")
+		Self.TmxL.setToolTip("Select tmx file to translate")
+		Self.LayoutFL.addRow(Self.TmxL, Self.TmxCB)
 
 		# Source language selection
 		Self.SourceLangCB = QComboBox()
@@ -284,9 +288,9 @@ class MainWindow(QWidget):
 		Self.SourceLangCB.setToolTip("Select the source language from which the texts will be translated")
 		if (UserData["SourceLanguage"] != "") and (UserData["SourceLanguage"] in Languages):
 			Self.SourceLangCB.setCurrentText(UserData["SourceLanguage"])
-		SourceLangL = QLabel("Source language")
-		SourceLangL.setToolTip("Select the source language from which the texts will be translated")
-		Self.LayoutFL.addRow(SourceLangL, Self.SourceLangCB)
+		Self.SourceLangL = QLabel("Source language")
+		Self.SourceLangL.setToolTip("Select the source language from which the texts will be translated")
+		Self.LayoutFL.addRow(Self.SourceLangL, Self.SourceLangCB)
 
 		# Target language selection
 		Self.TargetLangCB = QComboBox()
@@ -296,18 +300,34 @@ class MainWindow(QWidget):
 			Self.TargetLangCB.setCurrentText(UserData["TargetLanguage"])
 		elif len(Languages) > 1:
 			Self.TargetLangCB.setCurrentIndex(1)
-		TargetLangL = QLabel("Target language")
-		TargetLangL.setToolTip("Select the target language to which the texts will be translated")
-		Self.LayoutFL.addRow(TargetLangL, Self.TargetLangCB)
+		Self.TargetLangL = QLabel("Target language")
+		Self.TargetLangL.setToolTip("Select the target language to which the texts will be translated")
+		Self.LayoutFL.addRow(Self.TargetLangL, Self.TargetLangCB)
 
 		# Waiting label
-		WaitingL = QLabel("Translating may take a long time depending on server load, internet connection speed and amount of translated data.")
-		WaitingL.setStyleSheet("font: 14px \"Bahnschrift SemiLight SemiConde\"; color:#666666;")
-		WaitingL.setMargin(10)
-		Self.LayoutFL.addRow(WaitingL)
+		Self.WaitingL = QLabel("Translating may take a long time depending on server load, internet connection speed and amount of translated data.")
+		Self.WaitingL.setStyleSheet("font: 14px \"Bahnschrift SemiLight SemiConde\"; color: #666666;")
+		Self.WaitingL.setMargin(10)
+		Self.LayoutFL.addRow(Self.WaitingL)
 
 		# Timer for translate waiting
 		Self.TranslatingT = QTimer()
+
+		# Terms of use
+		Self.TermOfUseL = QLabel("I have read and agree to the terms and conditions of DeepL Free Translator (see link).<br>B&R assumes no liability.", alignment = Qt.AlignCenter)
+		Self.TermOfUseL.setStyleSheet("font: 20px \"Bahnschrift SemiLight SemiConde\"; color: #cccccc;")
+		Self.TermOfUseL.setMargin(10)
+		Self.TermOfUseL.setOpenExternalLinks(True)
+		Self.LayoutFL.addRow(Self.TermOfUseL)
+		Self.TermOfUsePB = QPushButton()
+		Self.TermOfUsePB.setText("Agree")
+		Self.LayoutFL.addRow(Self.TermOfUsePB)
+
+		# Init visibility of privacy
+		Self.aAgreement(Self.TranslatorCB.currentIndex())
+
+		# Init visibility of API key
+		Self.aTranslatorTextChanged()
 
 	# Window actions
 	def CreateActions(Self):
@@ -319,11 +339,79 @@ class MainWindow(QWidget):
 		Self.InfoD.ExitPB.clicked.connect(Self.aInfoExitClicked)
 
 		# Actions of form widgets
+		Self.TermOfUsePB.clicked.connect(lambda: Self.aAgreement(Self.TranslatorCB.currentIndex(), True))
 		Self.TranslatorCB.currentTextChanged.connect(Self.aTranslatorTextChanged)
 		Self.ApiKeyLE.textChanged.connect(Self.aApiKeyTextChanged)
 		Self.SourceLangCB.currentIndexChanged.connect(Self.CheckLanguages)
 		Self.TargetLangCB.currentIndexChanged.connect(Self.CheckLanguages)
 		Self.TranslatingT.timeout.connect(Self.aGuiAccepted)
+
+	# Terms of use agreement
+	def aAgreement(Self, TranslatorIndex, Confirm = False):
+		if Confirm:
+			if ("DeepL" in Self.TranslatorCB.itemText(TranslatorIndex)) or ("Yandex" in Self.TranslatorCB.itemText(TranslatorIndex)):
+				Self.ApiKeyL.setVisible(True)
+				Self.ApiKeyLE.setVisible(True)
+				Self.ApiLinkL.setVisible(True)
+				if ("DeepL" in Self.TranslatorCB.itemText(TranslatorIndex)):
+					Self.ApiFreePB.setVisible(True)
+				else:
+					Self.ApiFreePB.setVisible(False)
+			Self.TmxL.setVisible(True)
+			Self.TmxCB.setVisible(True)
+			Self.SourceLangL.setVisible(True)
+			Self.SourceLangCB.setVisible(True)
+			Self.TargetLangL.setVisible(True)
+			Self.TargetLangCB.setVisible(True)
+			Self.WaitingL.setVisible(True)
+			Self.BottomBar.OkPB.setVisible(True)
+			Self.TermOfUseL.setVisible(False)
+			Self.TermOfUsePB.setVisible(False)
+			UserData["TermsOfUse"][TranslatorIndex] = True
+		else:
+			if not(UserData["TermsOfUse"][TranslatorIndex]):
+				Self.ApiKeyL.setVisible(False)
+				Self.ApiKeyLE.setVisible(False)
+				Self.ApiFreePB.setVisible(False)
+				Self.ApiLinkL.setVisible(False)
+				Self.TmxL.setVisible(False)
+				Self.TmxCB.setVisible(False)
+				Self.SourceLangL.setVisible(False)
+				Self.SourceLangCB.setVisible(False)
+				Self.TargetLangL.setVisible(False)
+				Self.TargetLangCB.setVisible(False)
+				Self.WaitingL.setVisible(False)
+				Self.BottomBar.OkPB.setVisible(False)
+				Self.TermOfUseL.setVisible(True)
+				Self.TermOfUsePB.setVisible(True)
+				Self.TermOfUseL.setText(TRANSLATOR_PRIVACY[TranslatorIndex])
+			else:
+				if ("DeepL" in Self.TranslatorCB.itemText(TranslatorIndex)) or ("Yandex" in Self.TranslatorCB.itemText(TranslatorIndex)):
+					Self.ApiKeyL.setVisible(True)
+					Self.ApiKeyLE.setVisible(True)
+					Self.ApiLinkL.setVisible(True)
+					if ("DeepL" in Self.TranslatorCB.itemText(TranslatorIndex)):
+						Self.ApiFreePB.setVisible(True)
+					else:
+						Self.ApiFreePB.setVisible(False)
+				else:
+					Self.ApiKeyL.setVisible(False)
+					Self.ApiKeyLE.setVisible(False)
+					Self.ApiFreePB.setVisible(False)
+					Self.ApiLinkL.setVisible(False)
+				Self.TmxL.setVisible(True)
+				Self.TmxCB.setVisible(True)
+				Self.SourceLangL.setVisible(True)
+				Self.SourceLangCB.setVisible(True)
+				Self.TargetLangL.setVisible(True)
+				Self.TargetLangCB.setVisible(True)
+				Self.WaitingL.setVisible(True)
+				Self.BottomBar.OkPB.setVisible(True)
+				Self.TermOfUseL.setVisible(False)
+				Self.TermOfUsePB.setVisible(False)
+
+		Self.adjustSize()
+		Self.adjustSize()
 
 	# Start timer
 	def StartTimer(Self):
@@ -369,19 +457,16 @@ class MainWindow(QWidget):
 	# Translator changed
 	def aTranslatorTextChanged(Self):
 		Text = Self.TranslatorCB.currentText()
-		Self.ApiKeyL.setVisible(TRANSLATORS_API_KEY[Text])
-		Self.ApiLinkL.setVisible(TRANSLATORS_API_KEY[Text])
 		Self.ApiLinkL.setText("<a style='color:yellow; text-decoration:none' href='" + TRANSLATORS_LINK[Text] + "'>ⓘ</a>")
-		Self.ApiKeyLE.setVisible(TRANSLATORS_API_KEY[Text])
 		if "DeepL" in Text:
-			Self.ApiFreePB.setVisible(True)
 			if UserData["APIDeepL"] != "":
 				Self.ApiKeyLE.setText(UserData["APIDeepL"])
-		else:
-			Self.ApiFreePB.setVisible(False)
 		if "Yandex" in Text:
 			if UserData["APIYandex"] != "":
 				Self.ApiKeyLE.setText(UserData["APIYandex"])
+
+		# Agreement of selected translator
+		Self.aAgreement(Self.TranslatorCB.currentIndex())
 
 	# Set default style of API key
 	def aApiKeyTextChanged(Self):
@@ -1045,10 +1130,10 @@ else:
 		with open(UserDataPath, "rb") as TranslateTmxSettings:
 			UserData = pickle.load(TranslateTmxSettings)
 	except:
-		UserData = {"Translator": TRANSLATORS[0], "APIDeepL": "", "APIYandex": "", "DeepLFree": True, "TmxFile": "", "SourceLanguage": "", "TargetLanguage": ""}
+		UserData = {"Translator": TRANSLATORS[0], "APIDeepL": "", "APIYandex": "", "DeepLFree": True, "TmxFile": "", "SourceLanguage": "", "TargetLanguage": "", "TermsOfUse": [False] * len(TRANSLATORS)}
 
-	if (len(UserData) != 7):
-		UserData = {"Translator": TRANSLATORS[0], "APIDeepL": "", "APIYandex": "", "DeepLFree": True, "TmxFile": "", "SourceLanguage": "", "TargetLanguage": ""}
+	if (len(UserData) != 8):
+		UserData = {"Translator": TRANSLATORS[0], "APIDeepL": "", "APIYandex": "", "DeepLFree": True, "TmxFile": "", "SourceLanguage": "", "TargetLanguage": "", "TermsOfUse": [False] * len(TRANSLATORS)}
 
 	DebugPrint("UserData", UserData)
 
