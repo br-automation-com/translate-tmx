@@ -29,8 +29,8 @@ except:
 #####################################################################################################################################################
 # General
 WINDOW_TITLE = "Translate TMX"
-SCRIPT_VERSION = "1.0.1"
-DEBUG = True
+SCRIPT_VERSION = "1.0.2"
+DEBUG = False
 
 # Window style
 WINDOW_COLOR_STYLE = "#4a2c0d"
@@ -811,7 +811,9 @@ class BottomBar(QWidget):
 		VersionL = QLabel("ⓘ " + SCRIPT_VERSION)
 		VersionL.setToolTip("""To get more information about each row, hold the pointer on its label.
 		\nSupport contacts
-		FirstName.LastName@br-automation.com
+		michal.vavrik@br-automation.com
+		\nVersion 1.0.2
+		- Confirmation of Terms of Use added
 		\nVersion 1.0.1
 		- Adjustments for the new version of deep-translator library
 		\nVersion 1.0.0
